@@ -1,6 +1,7 @@
 import cv2
 import numpy as np
 import os
+import matplotlib.pyplot as plt
 '''
 CRZ:Main dish for retinatch
 '''
@@ -18,9 +19,14 @@ def init_saving_folders():
         os.mkdir(data_saving_path)
 
 def keypoint_to_dict(k):
+    '''Since pickle cannot save <Keypoint>'''
     temp = {'pt': k.pt, 'size': k.size, 'angle': k.angle, 'octave': k.octave,
             'class_id': k.class_id}
     return temp
+
+def gamma_normalization(img):
+    '''TODO: gamma normalization for retina images.'''
+    pass
 
 def extract_single_image_features(image_name):
     sift = cv2.xfeatures2d.SIFT_create(0, 3, 0.04, 10)
@@ -73,19 +79,24 @@ def find_best_match_index(image_name,data,models,threshold = 30,verbose = False)
     if (len(kp1)==0 or len(des1)==0):
         print('feature extraction failed.')
         return -1
-    # FLANN parameters
-    FLANN_INDEX_KDTREE = 0
-    index_params = dict(algorithm=FLANN_INDEX_KDTREE, trees=5)
-    search_params = dict(checks=50)  # or pass empty dictionary
 
-    flann = cv2.FlannBasedMatcher(index_params, search_params)
+    #choose matcher:
+    # FLANN parameters
+    # FLANN_INDEX_KDTREE = 0
+    # index_params = dict(algorithm=FLANN_INDEX_KDTREE, trees=5)
+    # search_params = dict(checks=50)  # or pass empty dictionary
+    #
+    # flann = cv2.FlannBasedMatcher(index_params, search_params)
+
+    bf = cv2.BFMatcher(cv2.NORM_L1, crossCheck=True)
 
     best_index = -1
     best_match_distance = 1e10
     for index,model_des in enumerate(models):
         if len(model_des)==0:
             continue
-        matches = flann.match(des1, model_des)
+        #matches = flann.match(des1, model_des)
+        matches = bf.match(des1, model_des)
         score = 0
         for match in matches:
             score += match.distance
@@ -106,7 +117,7 @@ def main():
     FORCE_RELOAD = False
     labels, data = get_fundus_images_data(data_folder)
 
-    #fliter out all l1 images
+    #find all l1 images
     new_data=[]
     for d in data:
         if d[1][-2:]=='l1':
@@ -126,23 +137,34 @@ def main():
 
     print('total model number:',kp.shape[0])
 
-    matched = 0
-    false_match = 0
-    total = 20
-    for t in range(1,1+total):
-        match_res,best_dist = find_best_match_index('/'+data_folder+ '/'+str(t)+'/'+str(t)+'_l2.jpg',data,des,250)
-        if match_res ==-1:
-            print('Match failed.')
-        else:
-            print('Matched',match_res+1,'name:',data[match_res][2])
-            if match_res+1==t:
-                matched+=1
+    all_acc=[]
+    all_fal=[]
+    trs=range(100,251,25)
+    for threshold in trs:
+        matched = 0
+        false_match = 0
+        total = 20
+        for t in range(1,1+total):
+            match_res,best_dist = find_best_match_index('/'+data_folder+ '/'+str(t)+'/'+str(t)+'_l2.jpg',data,des,threshold)
+            if match_res ==-1:
+                print('Match failed.')
             else:
-                false_match+=1
-    acc = matched*1.0 / total
-    wrong_match = false_match * 1.0 / total
-    print('Accuracy',acc)
-    print('False match',wrong_match)
-
+                print('Matched',match_res+1,'name:',data[match_res][2])
+                if data[match_res][0]==t:
+                    matched+=1
+                else:
+                    false_match+=1
+        acc = matched*1.0 / total
+        wrong_match = false_match * 1.0 / total
+        all_acc.append(acc)
+        all_fal.append(wrong_match)
+        print('Accuracy',acc)
+        print('False match',wrong_match)
+    plt.figure()
+    plt.plot(trs,all_fal)
+    plt.plot(trs,all_acc)
+    plt.legend(['false match','Accuracy'],loc='best')
+    plt.savefig('resultbf.png',format='png')
+    plt.show()
 if __name__ == '__main__':
     main()
