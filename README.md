@@ -1,3 +1,5 @@
 # RETINATCH
 Retina identification solution w/z python.opencv.
-![image](http://github.com/StellEdge/RETINATCH/raw/master/info/workflow.png)
+<p align='center'>
+<img src='info/workflow.png' title='WorkFlow' style='max-width:600px'></img>
+</p>
