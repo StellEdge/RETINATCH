@@ -7,7 +7,7 @@ def get_fundus_images_data(folder='',filename='regular-fundus-training.csv',inde
     with open(folder+'/'+filename , newline='') as csvfile:
         datareader = csv.reader(csvfile)    #delimiter=' ', quotechar='|'
         labels = [row for row in datareader]
-        data = labels[1:] #limit for test
+        data = labels[1:40] #limit for test
         labels = labels[0]
         '''standardlize types:'''
         # patient_id
