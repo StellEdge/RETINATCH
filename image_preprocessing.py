@@ -1,5 +1,7 @@
 import cv2
 import numpy as np
+from Hilditch import hilditch
+from vesselExtract import vessel_extract_api
 '''
 CRZ:
 For image preprocessing, image registration.'''
@@ -22,14 +24,26 @@ def crop_mask_image(img,padding=25):
     center = (radius+padding,radius+padding)
     cv2.circle(mask, center, radius, color=(255,255,255), thickness=-1)
     r_img=cv2.add(crop_img, np.zeros(np.shape(crop_img), dtype=np.uint8), mask=mask)
+
     return r_img
 
 def image_preprocess(img):
     #split channels, grab green channel only.
     b, g, r = cv2.split(img)
-    img0 = gamma_normalization(g)
-    img1 = crop_mask_image(img0)
-    return img1
+    img0 = crop_mask_image(g)
+    img0 = cv2.resize(img0,(600,600),interpolation=cv2.INTER_AREA)
+    cv2.imshow('Result',img0)
+    if cv2.waitKey(0) & 0xff == ord('c'):
+        cv2.waitKey(1)
+    img1 = vessel_extract_api(img0)
+    cv2.imshow('Result',img1)
+    if cv2.waitKey(0) & 0xff == ord('c'):
+        cv2.waitKey(1)
+    img2 = hilditch(img1)
+    cv2.imshow('Result',img2)
+    if cv2.waitKey(0) & 0xff == ord('c'):
+        cv2.waitKey(1)
+    return img2
 
 def read_image_and_preprocess(image_path):
     image = cv2.imread(image_path)
@@ -39,3 +53,7 @@ def read_image_and_preprocess(image_path):
 def retina_registration(imgs):
     '''TODO: registration for retina images.'''
     pass
+
+if __name__ == '__main__':
+    res = read_image_and_preprocess('regular-fundus-training/1/1_l1.jpg')
+    cv2.namedWindow('Result')
