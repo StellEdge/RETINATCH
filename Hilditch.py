@@ -81,6 +81,7 @@ def hilditch(img):
                 out[y, x] = 0
             if out[y, x] == 1:
                 out[y, x] = 255
+    out=np.array(out,dtype=np.uint8)
     return out
 
 
