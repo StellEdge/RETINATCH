@@ -191,7 +191,7 @@ def extract_vectors(img, map, target_neighbor):
     return np.array(kps), np.array(extracted_vector)
 
 
-def extract_y_features(img):
+def extract_y_feature(img):
     '''
     extract bifurcation and ending points.
     :param img: Grayscale image
@@ -224,5 +224,5 @@ def extract_y_features(img):
     return kp, res
 
 
-img = cv2.imread('refine_image/250/250_l1.png', cv2.IMREAD_GRAYSCALE)
-kp, res = extract_y_features(img)
+# img = cv2.imread('refine_image/250/250_l1.png', cv2.IMREAD_GRAYSCALE)
+# kp, res = extract_y_feature(img)
