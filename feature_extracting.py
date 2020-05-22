@@ -3,6 +3,24 @@ import numpy as np
 from sklearn.neighbors import kneighbors_graph
 import queue
 
+from image_preprocessing import read_image_and_preprocess
+
+def keypoint_to_dict(k):
+    '''Since pickle cannot save <Keypoint>'''
+    temp = {'pt': k.pt, 'size': k.size, 'angle': k.angle, 'octave': k.octave,
+            'class_id': k.class_id}
+    return temp
+
+def dict_to_keypoint(k):
+    '''Since pickle cannot save <Keypoint>'''
+    r = cv2.KeyPoint()
+    r.pt= k['pt']
+    r.size= k['size']
+    r.angle= k['angle']
+    r.octave = k['octave']
+    r.class_id= k['class_id']
+    return r
+
 cells = [(-1, -1),
          (-1, 0),
          (-1, 1),
@@ -113,7 +131,7 @@ def search_and_mark(img, point, bifur_ending_map, delete_map):
     '''如果该分叉点有一个与之连接的末梢点且二者之间满足毛刺的结构特征，
     则将分叉点和末梢点打上删除标记'''
     flag = False
-    for k, v in find_result:
+    for k, v, d in find_result:
         if v == 1 and np.sum((np.array(k) - np.array(point)) ** 2) < 8:
             flag = True
     if flag:
@@ -139,12 +157,17 @@ def bifurcation_points_filter(img, bifur_map, ending_map):
     for i in range(0, bifur_map.shape[0]):
         for j in range(0, bifur_map.shape[1]):
             if bifur_map[i, j] != 0 and delete_map[i, j] == 0:
-                search_and_mark(img, [i, j], bifur_ending_map, delete_map)
+                #distance filter
+                distance = np.linalg.norm(np.array([i-bifur_map.shape[0]/2,j-bifur_map.shape[1]/2]))
+                if distance > 550 :
+                    delete_map[i, j] = 1
+                else:
+                    search_and_mark(img, [i, j], bifur_ending_map, delete_map)
     bifur_map_new = np.where(bifur_map - delete_map > 0, 1, 0)
     return bifur_map_new
 
 
-def extract_vectors(img, map, target_neighbor):
+def extract_vectors( map, target_neighbor):
     '''
     search and convert?
     wanted vecter:
@@ -179,16 +202,25 @@ def extract_vectors(img, map, target_neighbor):
         distances = [j[0] for j in distances]
 
         base_direction = points[neighbors_index[0]] - points[i]
-        base_model = np.sqrt(np.sum((base_direction) ** 2))
-        cosine_angle = [np.sum(np.multiply((points[j] - points[i]), base_direction)) / (
-                    base_model * np.sqrt(np.sum((points[j] - points[i]) ** 2)))
-                        for j in neighbors_index[1:]]
+        #base_model = np.sqrt(np.sum((base_direction) ** 2))
+        base_model = np.linalg.norm(base_direction)
+        #Cosine: a.dot(b) / (np.linalg.norm(a) * np.linalg.norm(b))
+        cosine_angle = [points[j].dot(base_direction ) / (np.linalg.norm(points[j])*base_model) for j in neighbors_index[1:]]
+        # cosine_angle = [np.sum(np.multiply((points[j] - points[i]), base_direction)) / (
+        #             base_model * np.sqrt(np.sum((points[j] - points[i]) ** 2)))
+        #                 for j in neighbors_index[1:]]
         cosine_angle = np.arccos(cosine_angle).tolist()
-        for k in range(3):
-            print(neighbors_index[k + 1], distances[k + 1], points[neighbors_index[k + 1]] - points[i], cosine_angle[k])
-        kps.append(points[i])
+        # for k in range(3):
+        #     print(neighbors_index[k + 1], distances[k + 1], points[neighbors_index[k + 1]] - points[i], cosine_angle[k])
+        r = cv2.KeyPoint()
+        r.pt = tuple(points[i])
+        r.size = base_model
+        r.angle = 0
+        r.octave = 0
+        r.class_id = 0
+        kps.append(r)
         extracted_vector.append(distances + cosine_angle)
-    return np.array(kps), np.array(extracted_vector)
+    return np.array(kps), np.array(extracted_vector,dtype=np.float32)
 
 
 def extract_y_feature(img):
@@ -220,8 +252,35 @@ def extract_y_feature(img):
         # cv2.destroyAllWindows()
         cv2.waitKey(1)
     '''y_feature extraction plan 1:'''
-    kp, res = extract_vectors(img, bifurcation_points_new, 4)
+    kp, res = extract_vectors(bifurcation_points_new, 4)
+    kp = [keypoint_to_dict(i) for i in kp]
     return kp, res
+
+def extract_y_features(image_names):
+    key_points_for_all = []
+    descriptor_for_all = []
+    # colors_for_all = []
+    cv2.namedWindow('Extracting', cv2.WINDOW_NORMAL)
+    for image_name in image_names:
+        print('extracting',image_name)
+        image = read_image_and_preprocess(image_name)
+        cv2.imshow('Extracting', image)
+        cv2.waitKey(1)
+        # if cv2.waitKey(0) & 0xff == ord('c'):
+        #     continue
+        if image is None:
+            continue
+        key_points, descriptor = extract_y_feature(image)
+
+        if len(key_points) <= 10:
+            print('Key points are not enough. Skipped:',image_name)
+            key_points_for_all.append([])
+            descriptor_for_all.append([])
+            continue
+
+        key_points_for_all.append(key_points)
+        descriptor_for_all.append(descriptor)
+    return np.array(key_points_for_all), np.array(descriptor_for_all) #, np.array(colors_for_all)
 
 
 # img = cv2.imread('refine_image/250/250_l1.png', cv2.IMREAD_GRAYSCALE)
