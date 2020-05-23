@@ -29,7 +29,7 @@ def extract_single_image_features(image):
     #b, g, r = cv2.split(image)  # cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
     key_points, descriptor = sift.detectAndCompute(image, None)
     if len(key_points) <= 10:
-        print('Key points are not enough. Skipped:', image_name)
+        print('Key points are not enough. Skipped:')
         return [],[]
 
     key_points_dict = [keypoint_to_dict(i) for i in key_points]
@@ -68,6 +68,14 @@ def extract_features(image_names):
         # colors_for_all.append(colors)
     return np.array(key_points_for_all), np.array(descriptor_for_all) #, np.array(colors_for_all)
 
-img = cv2.imread('refine_image/250/250_l1.png', cv2.IMREAD_GRAYSCALE)
-kp, res = extract_single_image_features(img)
+img = cv2.imread('regular-fundus-training/1/1_l2.jpg')
+b,g,r = cv2.split(img)
+kp, res = extract_single_image_features(g)
+kp = [dict_to_keypoint(i) for i in kp]
+img = cv2.drawKeypoints(img, kp, np.array([]), (255,255,0), cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS)
+cv2.namedWindow('Test', cv2.WINDOW_NORMAL)
+cv2.imshow('Test',img)
+if cv2.waitKey(0) & 0xff == ord('c'):
+    cv2.destroyAllWindows()
+    cv2.waitKey(1)
 print('sd')

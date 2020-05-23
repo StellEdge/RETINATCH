@@ -2,8 +2,7 @@ import cv2
 import numpy as np
 from sklearn.neighbors import kneighbors_graph
 import queue
-
-from image_preprocessing import read_image_and_preprocess
+from image_preprocessing import read_image_and_preprocess,smooth_image
 
 def keypoint_to_dict(k):
     '''Since pickle cannot save <Keypoint>'''
@@ -59,14 +58,9 @@ def get_minutiae_values(img):
 #         [0,1,1,0]
 #     ]
 # )
+# a = test[1:3,1:3]
 # res = get_minutiae_values(test)
 # print(res)
-def y_feature_conversion():
-    '''TODO: get y_feature with rotation stablity.'''
-    # connectivity = kneighbors_graph(
-    #     X, n_neighbors=params['n_neighbors'], include_self=False)
-    pass
-
 
 def search_and_mark(img, point, bifur_ending_map, delete_map):
     search_map = np.zeros_like(bifur_ending_map)
@@ -222,7 +216,6 @@ def extract_vectors( map, target_neighbor):
         extracted_vector.append(distances + cosine_angle)
     return np.array(kps), np.array(extracted_vector,dtype=np.float32)
 
-
 def extract_y_feature(img):
     '''
     extract bifurcation and ending points.
@@ -283,5 +276,11 @@ def extract_y_features(image_names):
     return np.array(key_points_for_all), np.array(descriptor_for_all) #, np.array(colors_for_all)
 
 
-# img = cv2.imread('refine_image/250/250_l1.png', cv2.IMREAD_GRAYSCALE)
-# kp, res = extract_y_feature(img)
+# from vesselExtract import vesselsExtract
+# from Hilditch import hilditch
+# img = vesselsExtract('test.jpg', 600)
+# img = hilditch(img)
+# cv2.imwrite('res.png',img)
+img = cv2.imread('res.png',cv2.IMREAD_GRAYSCALE)
+img = smooth_image(img)
+kp, res = extract_y_feature(img)
