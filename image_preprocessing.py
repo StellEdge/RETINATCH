@@ -120,20 +120,20 @@ def smooth_image(img):
         ending_map = np.where(np.logical_and(minutiae_map == 1, img > 0), 1, 0)
         bifur_ending_map = 3 * bifur_map + ending_map
 
-        display_img = res_img.astype(np.uint8)
-        display_img = cv2.cvtColor(display_img, cv2.COLOR_GRAY2BGR)
-        for i in range(0, display_img.shape[0]):
-            for j in range(0, display_img.shape[1]):
-                if bifur_ending_map[i, j] == 3:
-                    display_img[i,j]=(0, 255, 0)
-                    cv2.circle(display_img, (j, i), 3, (0, 255, 0), 1)
-                elif bifur_ending_map[i, j] == 1:
-                    display_img[i, j] = (255,0, 0)
-                    cv2.circle(display_img, (j, i), 3, (255, 0, 0), 1)
-        cv2.imshow('SMOOTH',display_img.astype(np.uint8))
-        cv2.waitKey(1)
-        if cv2.waitKey(0) & 0xff == ord('c'):
-            cv2.waitKey(1)
+        # display_img = res_img.astype(np.uint8)
+        # display_img = cv2.cvtColor(display_img, cv2.COLOR_GRAY2BGR)
+        # for i in range(0, display_img.shape[0]):
+        #     for j in range(0, display_img.shape[1]):
+        #         if bifur_ending_map[i, j] == 3:
+        #             display_img[i,j]=(0, 255, 0)
+        #             cv2.circle(display_img, (j, i), 3, (0, 255, 0), 1)
+        #         elif bifur_ending_map[i, j] == 1:
+        #             display_img[i, j] = (255,0, 0)
+        #             cv2.circle(display_img, (j, i), 3, (255, 0, 0), 1)
+        # cv2.imshow('SMOOTH',display_img.astype(np.uint8))
+        # cv2.waitKey(1)
+        # if cv2.waitKey(0) & 0xff == ord('c'):
+        #     cv2.waitKey(1)
 
     return res_img.astype(np.uint8)
 
@@ -157,7 +157,9 @@ def crop_mask_image(img,padding=25):
 def image_preprocess(img):
     #split channels, grab green channel only.
     b, g, r = cv2.split(img)
-    img0 = crop_mask_image(g)
+    ratio = g.shape[1]/g.shape[0]
+    img0 = cv2.resize(g, (1736 , int(1736*ratio)), interpolation=cv2.INTER_AREA)
+    img0 = crop_mask_image(img0)
     img0 = cv2.resize(img0,(600,600),interpolation=cv2.INTER_AREA)
     img1 = vessel_extract_api(img0)
     img2 = hilditch(img1)
@@ -168,7 +170,9 @@ def image_preprocess(img):
 def image_preprocess_display(img):
     #split channels, grab green channel only.
     b, g, r = cv2.split(img)
-    img0 = crop_mask_image(g)
+    ratio = g.shape[1]/g.shape[0]
+    img0 = cv2.resize(g, (1736 , int(1736*ratio)), interpolation=cv2.INTER_AREA)
+    img0 = crop_mask_image(img0)
     img0 = cv2.resize(img0,(600,600),interpolation=cv2.INTER_AREA)
     return img0
 

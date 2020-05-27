@@ -207,7 +207,7 @@ def extract_vectors( map, target_neighbor):
         # for k in range(3):
         #     print(neighbors_index[k + 1], distances[k + 1], points[neighbors_index[k + 1]] - points[i], cosine_angle[k])
         r = cv2.KeyPoint()
-        r.pt = tuple(points[i])
+        r.pt = tuple([ points[i][1],points[i][0] ])
         r.size = base_model
         r.angle = 0
         r.octave = 0
@@ -226,26 +226,26 @@ def extract_y_feature(img):
     bifurcation_points = np.where(np.logical_and(minutiae_map == 3, img > 0), 1, 0)
     ending_points = np.where(np.logical_and(minutiae_map == 1, img > 0), 1, 0)
 
-    bifurcation_points_new = bifurcation_points_filter(img, bifurcation_points, ending_points)
-    img = cv2.cvtColor(img, cv2.COLOR_GRAY2BGR)
-    for i in range(0, img.shape[0]):
-        for j in range(0, img.shape[1]):
-            if bifurcation_points_new[i, j] > 0:
-                cv2.circle(img, (j, i), 3, (0, 255, 0), 1)
-            elif bifurcation_points[i, j] > 0:
-                cv2.circle(img, (j, i), 3, (0, 0, 255), 1)
-            elif ending_points[i, j] > 0:
-                cv2.circle(img, (j, i), 3, (255, 0, 0), 1)
-            else:
-                pass
-    cv2.namedWindow('Result', cv2.WINDOW_NORMAL)
-    cv2.imshow('Result', img)
-    cv2.waitKey(1)
-    if cv2.waitKey(0) & 0xff == ord('q'):
-        # cv2.destroyAllWindows()
-        cv2.waitKey(1)
+    #bifurcation_points_new = bifurcation_points_filter(img, bifurcation_points, ending_points)
+    # img = cv2.cvtColor(img, cv2.COLOR_GRAY2BGR)
+    # for i in range(0, img.shape[0]):
+    #     for j in range(0, img.shape[1]):
+    #         if bifurcation_points[i, j] > 0:
+    #             cv2.circle(img, (j, i), 3, (0, 255, 0), 1)
+    #         elif bifurcation_points[i, j] > 0:
+    #             cv2.circle(img, (j, i), 3, (0, 0, 255), 1)
+    #         elif ending_points[i, j] > 0:
+    #             cv2.circle(img, (j, i), 3, (255, 0, 0), 1)
+    #         else:
+    #             pass
+    # cv2.namedWindow('Result', cv2.WINDOW_NORMAL)
+    # cv2.imshow('Result', img)
+    # cv2.waitKey(1)
+    # if cv2.waitKey(0) & 0xff == ord('q'):
+    #     # cv2.destroyAllWindows()
+    #     cv2.waitKey(1)
     '''y_feature extraction plan 1:'''
-    kp, res = extract_vectors(bifurcation_points_new, 4)
+    kp, res = extract_vectors(bifurcation_points, 4)
     kp = [keypoint_to_dict(i) for i in kp]
     return kp, res
 
@@ -281,6 +281,6 @@ def extract_y_features(image_names):
 # img = vesselsExtract('test.jpg', 600)
 # img = hilditch(img)
 # cv2.imwrite('res.png',img)
-img = cv2.imread('res.png',cv2.IMREAD_GRAYSCALE)
-img = smooth_image(img)
-kp, res = extract_y_feature(img)
+# img = cv2.imread('res.png',cv2.IMREAD_GRAYSCALE)
+# img = smooth_image(img)
+# kp, res = extract_y_feature(img)

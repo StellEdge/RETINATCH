@@ -72,7 +72,7 @@ def find_best_match_index(image_name,data,model_points,models,threshold = 30,ver
                 # img2 = cv2.imread(data[index][2])
                 # img2 = image_preprocess_display(img2)
                 img2 = read_image_and_preprocess(data[index][2])
-                matching_result = cv2.drawMatches(img1, kp1, img2, kp2, matches, None, flags=2)
+                matching_result = cv2.drawMatches(img1, kp1, img2, kp2, matches[:10], None, flags=2)
                 cv2.putText(matching_result, image_name+'               '+data[index][2],
                             (10, 20),
                             cv2.FONT_HERSHEY_PLAIN, 1.0, (255, 255, 255), 1)
