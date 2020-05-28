@@ -137,6 +137,14 @@ def smooth_image(img):
 
     return res_img.astype(np.uint8)
 
+def get_mask(shape,radius = int(1650/2),padding=25):
+    #pad_size=radius + padding
+    height,width = shape[:2]
+    center = (int(width/2),int(height/2))
+    mask = np.zeros(shape, np.uint8)
+    cv2.circle(mask, center, radius, color=(255, 255, 255), thickness=-1)
+    return mask
+
 def crop_mask_image(img,padding=25):
     mask_path = 'mask.jpg'
     #mask = cv2.imread(mask_path,cv2.IMREAD_GRAYSCALE)
