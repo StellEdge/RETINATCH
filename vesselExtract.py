@@ -294,8 +294,8 @@ def vesselsExtract(picturePath, targetWidth):
     # 二值化
     ret1, th1 = cv2.threshold(grayStretchImg, 30, 255, cv2.THRESH_OTSU)
     # th1 = cv2.morphologyEx(th1, cv2.MORPH_CLOSE, np.ones((3,3)))
-    kernel = np.ones((3,3), np.uint8)
-    #th1 = cv2.dilate(th1,kernel)
+    kernel = np.ones((2,2), np.uint8)
+    th1 = cv2.dilate(th1,kernel)
     predictImg = th1.copy()
     cv2.imwrite("predictImg.png", predictImg)
     return predictImg
@@ -327,6 +327,8 @@ def vessel_extract_api(origrayImg):
 
     # 二值化
     ret1, th1 = cv2.threshold(grayStretchImg, 30, 255, cv2.THRESH_OTSU)
+    kernel = np.ones((2,2), np.uint8)
+    th1 = cv2.dilate(th1,kernel)
     # th1 = cv2.morphologyEx(th1, cv2.MORPH_CLOSE, np.ones((3,3)))
     predictImg = th1.copy()
 
