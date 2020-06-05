@@ -269,7 +269,7 @@ def vesselsExtract(picturePath, targetWidth):
     # showImg("mask", mask)
 
     # 高斯滤波
-    blurImg = cv2.GaussianBlur(grayImg, (5, 5), 0)
+    blurImg = cv2.GaussianBlur(grayImg, (11, 11), 0)
     # cv2.imwrite("blurImg.png", blurImg)
 
     # HE
@@ -294,6 +294,8 @@ def vesselsExtract(picturePath, targetWidth):
     # 二值化
     ret1, th1 = cv2.threshold(grayStretchImg, 30, 255, cv2.THRESH_OTSU)
     # th1 = cv2.morphologyEx(th1, cv2.MORPH_CLOSE, np.ones((3,3)))
+    kernel = np.ones((3,3), np.uint8)
+    #th1 = cv2.dilate(th1,kernel)
     predictImg = th1.copy()
     cv2.imwrite("predictImg.png", predictImg)
     return predictImg
@@ -304,7 +306,7 @@ def vessel_extract_api(origrayImg):
     mask = cv2.erode(th0, np.ones((7, 7), np.uint8))
 
     # 高斯滤波
-    blurImg = cv2.GaussianBlur(origrayImg, (5, 5), 0)
+    blurImg = cv2.GaussianBlur(origrayImg, (11, 11), 0)
 
     # HE
     heImg = cv2.equalizeHist(blurImg)
@@ -327,7 +329,8 @@ def vessel_extract_api(origrayImg):
     ret1, th1 = cv2.threshold(grayStretchImg, 30, 255, cv2.THRESH_OTSU)
     # th1 = cv2.morphologyEx(th1, cv2.MORPH_CLOSE, np.ones((3,3)))
     predictImg = th1.copy()
+
     return predictImg
 
 if __name__ == '__main__':
-    vesselsExtract("test.jpg", 600)
+    vesselsExtract("test4.jpg", 600)
