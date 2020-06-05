@@ -218,8 +218,7 @@ def extract_vectors( map, target_neighbor):
 
 def extract_y_feature(img):
     '''
-    extract bifurcation and ending points.
-    :param img: Grayscale image
+    extract bifurcation and ending points.   :param img: Grayscale image
     :return:
     '''
     minutiae_map = get_minutiae_values(img)

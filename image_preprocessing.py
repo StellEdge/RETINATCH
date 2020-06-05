@@ -72,7 +72,7 @@ def smooth_image(img):
                             target_point = p
                             if bifur_ending_map[p[0], p[1]] == 3:
                                 '''another bifurcation point is the nearest'''
-                                if dist>2:
+                                if dist>4:
                                     #do not delete
                                     delete_list=[]
                                 break
@@ -114,12 +114,12 @@ def smooth_image(img):
 
                     # cv2.imshow('SMOOTH', res_img.astype(np.uint8))
                     # cv2.waitKey(1)
-
+        '''
         minutiae_map = get_minutiae_values(res_img)
         bifur_map = np.where(np.logical_and(minutiae_map == 3, img > 0), 1, 0)
         ending_map = np.where(np.logical_and(minutiae_map == 1, img > 0), 1, 0)
         bifur_ending_map = 3 * bifur_map + ending_map
-
+        '''
         # display_img = res_img.astype(np.uint8)
         # display_img = cv2.cvtColor(display_img, cv2.COLOR_GRAY2BGR)
         # for i in range(0, display_img.shape[0]):
@@ -165,8 +165,8 @@ def crop_mask_image(img,padding=25):
 def image_preprocess(img):
     #split channels, grab green channel only.
     b, g, r = cv2.split(img)
-    ratio = g.shape[1]/g.shape[0]
-    img0 = cv2.resize(g, (1736 , int(1736*ratio)), interpolation=cv2.INTER_AREA)
+    ratio = g.shape[0]/g.shape[1]
+    img0 = cv2.resize(g, (int(1736*ratio),1736), interpolation=cv2.INTER_AREA)
     img0 = crop_mask_image(img0)
     img0 = cv2.resize(img0,(600,600),interpolation=cv2.INTER_AREA)
     img1 = vessel_extract_api(img0)
@@ -178,11 +178,17 @@ def image_preprocess(img):
 def image_preprocess_display(img):
     #split channels, grab green channel only.
     b, g, r = cv2.split(img)
-    ratio = g.shape[1]/g.shape[0]
-    img0 = cv2.resize(g, (1736 , int(1736*ratio)), interpolation=cv2.INTER_AREA)
+    ratio = g.shape[0]/g.shape[1]
+    img0 = cv2.resize(g, (int(1736*ratio),1736 ), interpolation=cv2.INTER_AREA)
     img0 = crop_mask_image(img0)
     img0 = cv2.resize(img0,(600,600),interpolation=cv2.INTER_AREA)
     return img0
+
+def image_thinning(img):
+    img1 = vessel_extract_api(img)
+    img2 = hilditch(img1)
+    img2 = smooth_image(img2)
+    return img2
 
 def read_image_and_preprocess(image_path):
     image = cv2.imread(image_path)
