@@ -7,7 +7,7 @@ from image_preprocessing import *
 '''
 CRZ:Main dish for retinatch
 '''
-from dataloader import get_fundus_images_data
+from dataloader import get_fundus_images_data,get_fundus_images_data_Sidra
 from feature_extracting import extract_y_features, extract_y_feature
 from cntBifurcation import extract_circle_feature_single, extract_circle_features
 
@@ -109,8 +109,7 @@ def vote_for_match_result(image_des, data, model_points, models, threshold=5, vo
         if len(model_des) == 0:
             # no descriptor for this image
             continue
-        print('model:', model_des)
-        print('test:', des1)
+
         vote_weights = np.ones_like(des1)
         vote_weights[-1] = 2
         vote_weights[-2] = 1.5
@@ -124,8 +123,10 @@ def vote_for_match_result(image_des, data, model_points, models, threshold=5, vo
 
         vote_rate = np.sum(vote_res) / np.sum(vote_weights)
         if vote_rate > vote_threshold:
-            if verbose:
-                print("Fingerprint matches. Model index", index + 1, 'dist:', vote_rate, 'Name:', data[index][2])
+            #if verbose:
+            print("Fingerprint matches. Model index", index + 1, 'dist:', vote_rate, 'Name:', data[index])
+            print('model:', model_des,'test:', des1)
+
             if vote_rate > best_vote_rate:
                 best_index = index
                 best_vote_rate = vote_rate
@@ -156,20 +157,21 @@ def vote_for_match_result(image_des, data, model_points, models, threshold=5, vo
 def main():
     init_saving_folders()
     FORCE_RELOAD = True
-    labels, data = get_fundus_images_data(data_folder)
+    #labels, data = get_fundus_images_data(data_folder)
+    data = get_fundus_images_data_Sidra()
 
     # find all l1 images
-    new_data = []
-    for d in data:
-        if d[1][-2:] == 'l1':
-            new_data.append(d)
-    data = new_data
+    # new_data = []
+    # for d in data:
+    #     if d[1][-2:] == 'l1':
+    #         new_data.append(d)
+    # data = new_data
 
     if not (os.path.exists(feature_saving_paths['kp'])
             and os.path.exists(feature_saving_paths['des'])) or FORCE_RELOAD:
         print('Save file not found, extracting features.')
         kp = []
-        des = extract_circle_features([i[2] for i in data])
+        des = extract_circle_features(data)
         np.save(feature_saving_paths['kp'], kp)
         np.save(feature_saving_paths['des'], des)
     else:
@@ -180,14 +182,14 @@ def main():
     print('total model number:', des.shape[0])
 
     vote_trs = [0.4, 0.5, 0.6, 0.7, 0.8]
-    trs = [3, 4, 5, 10, 12, 15, 17, 20]
+    trs = [1,2,3, 4, 5]
     total = 20
     # cv2.namedWindow('MatchResult', cv2.WINDOW_NORMAL)
     if not os.path.exists(feature_saving_paths['test']) or FORCE_RELOAD:
         test_des = []
-        for t in range(1, 1 + total):
+        for t,p in zip(range(1, 1 + total),os.listdir('Sidra_custom')):
             # match_res,best_dist = find_best_match_index(data_folder+ '/'+str(t)+'/'+str(t)+'_l2.jpg',data,kp,des,threshold)
-            d = extract_circle_feature_single(data_folder + '/' + str(t) + '/' + str(t) + '_l2.jpg')
+            d = extract_circle_feature_single(os.path.join('Sidra_custom',p,'2.jpg'))
             test_des.append(d)
 
         test_des = np.array(test_des)
@@ -212,8 +214,8 @@ def main():
                 if match_res == -1:
                     print('Match failed.')
                 else:
-                    print('Matched', match_res + 1, 'name:', data[match_res][2])
-                    if data[match_res][0] == t:
+                    print('Matched', match_res + 1, 'name:', data[match_res])
+                    if data[match_res] == t:
                         matched += 1
                     else:
                         false_match += 1

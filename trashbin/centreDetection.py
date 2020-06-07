@@ -4,7 +4,7 @@ import cv2 as cv2
 
 binaryThreshold = 0.8
 
-imgOrigin = cv2.imread("../../Programs/Tencentdata/1030110910/FileRecv/eye2.png", cv2.IMREAD_COLOR)
+imgOrigin = cv2.imread("../../../Programs/Tencentdata/1030110910/FileRecv/eye2.png", cv2.IMREAD_COLOR)
 imgx = imgOrigin.shape[0]
 imgy = imgOrigin.shape[1]
 if imgx > imgy:

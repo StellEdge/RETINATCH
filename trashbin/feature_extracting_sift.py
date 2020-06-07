@@ -68,7 +68,7 @@ def extract_features(image_names):
         # colors_for_all.append(colors)
     return np.array(key_points_for_all), np.array(descriptor_for_all) #, np.array(colors_for_all)
 
-img = cv2.imread('regular-fundus-training/1/1_l2.jpg')
+img = cv2.imread('../regular-fundus-training/1/1_l2.jpg')
 b,g,r = cv2.split(img)
 kp, res = extract_single_image_features(g)
 kp = [dict_to_keypoint(i) for i in kp]

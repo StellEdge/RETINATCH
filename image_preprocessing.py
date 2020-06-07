@@ -146,7 +146,7 @@ def get_mask(shape,radius = int(1650/2),padding=25):
     return mask
 
 def crop_mask_image(img,padding=25):
-    mask_path = 'mask.jpg'
+    mask_path = 'trashbin/mask.jpg'
     #mask = cv2.imread(mask_path,cv2.IMREAD_GRAYSCALE)
     diameter = 1650
     radius = int(1650/2)

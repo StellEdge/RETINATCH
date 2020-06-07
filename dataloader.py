@@ -34,4 +34,11 @@ def get_fundus_images_data(folder='',filename='regular-fundus-training.csv',inde
             data[i] = new_data
         return labels[:indexlimit], data
 
-#get_fundus_images_data()
+import os
+def get_fundus_images_data_Sidra(folder='Sidra_custom'):
+    process_dir = folder
+    subdir_list = os.listdir(process_dir)
+    data = []
+    for subdir in subdir_list:
+        data.append(os.path.join(process_dir,subdir,'1.jpg'))
+    return data
