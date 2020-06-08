@@ -202,6 +202,7 @@ def triange_match(model_bifur_map, test_bifur_map, max_baseline_failure, min_par
     model_baseline_vectors = build_baseline_vectors_model(model_bifur_map)
     model_bifur_points = map_to_points(model_bifur_map)
 
+
     baseline_match_failure = 0
     print('ready to match')
     for baseline_vector in model_baseline_vectors:
