@@ -31,12 +31,9 @@ def get_similar_triangles(test_bifur_map,z):
                         B_array=[B[0],B[1]]
                         triangles.append([[A_array,B_array],c_real])
 
+    print(len(triangles))
     return triangles
 
-
-
-
-    return np.array([])
 
 def rotation(shape,A,B,z,epsilon):
     '''
@@ -52,8 +49,8 @@ def rotation(shape,A,B,z,epsilon):
     sin=np.sin(z[1])
     x=B[1]-A[1]
     y=B[0]-A[0]
-    delta_x=r*(x*cos-y*sin)
-    delta_y=r*(y*cos+x*sin)
+    delta_x=z[0]*(x*cos-y*sin)
+    delta_y=z[0]*(y*cos+x*sin)
     C1=[A[0]+delta_y,A[1]+delta_x]
     if C1[0]>=-epsilon and C1[0]<shape[0]+epsilon and C1[1]>=-epsilon and C1[1]<shape[1]+epsilon:
         C.append(C1)
@@ -91,7 +88,7 @@ def judge_triangle(A,B,C,min_length,min_difference):
     dAC=np.sqrt(pow(A[0]-C[0],2)+pow(A[1]-C[1],2))
     dBC=np.sqrt(pow(B[0]-C[0],2)+pow(B[1]-C[1],2))
     dmin=min(dAB,min(dAC,dBC))
-    if dmin<epsilon:
+    if dmin<min_length:
         return False
     if dAB+dAC-dBC<min_difference:
         return False
