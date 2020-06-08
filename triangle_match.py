@@ -45,17 +45,15 @@ def get_template_triangle(baseline_vector,c):
     return z
 
 
-def get_similar_triangles(test_bifur_map,z):
+def get_similar_triangles(test_bifur_map,z,epsilon=2.0,triangle_ignore_len = 20,triangle_ignore_angle_cos = -0.5):
     '''
 
     :param test_bifur_map: the bifurcation point map of test, include n points.
     :param z: rotation factor z of template triangle. z=[r,theta]
+    :param epsilon: the deviation of point C
     :return: array of similar triangles. Cn_2 * [[A'B'],C]
     '''
     record={}
-    epsilon=0.5 #the deviation of point C
-    min_length=2.0 #the min length permitted
-    min_difference=2.0 #the min difference between a side and the sum of the other two sides
     triangles=[]
     for y in range(test_bifur_map.shape[0]):
         for x in range(test_bifur_map.shape[1]):
@@ -70,9 +68,9 @@ def get_similar_triangles(test_bifur_map,z):
             for c in C:
                 C_real=find_C(c,record,epsilon)
                 for c_real in C_real:
-                    if judge_triangle(A,B,c_real,min_length,min_difference):
-                        A_array=[A[0],A[1]]
-                        B_array=[B[0],B[1]]
+                    A_array=[A[0],A[1]]
+                    B_array=[B[0],B[1]]
+                    if not is_bad_triangle(A_array,B_array,c_real,triangle_ignore_len,triangle_ignore_angle_cos):
                         triangles.append([[A_array,B_array],c_real])
 
     print(len(triangles))
@@ -118,28 +116,6 @@ def find_C(C,record,epsilon):
             C_real.append([key[0],key[1]])
 
     return C_real
-
-def judge_triangle(A,B,C,min_length,min_difference):
-    '''
-
-    A,B: tuple
-    C: np.array
-    min_length: the min length permitted
-    min_difference: the min difference between a side and the sum of the other two sides
-    return: True if it's a triangle
-    '''
-    dAB=np.sqrt(pow(A[0]-B[0],2)+pow(A[1]-B[1],2))
-    dAC=np.sqrt(pow(A[0]-C[0],2)+pow(A[1]-C[1],2))
-    dBC=np.sqrt(pow(B[0]-C[0],2)+pow(B[1]-C[1],2))
-    dmin=min(dAB,min(dAC,dBC))
-    if dmin<min_length:
-        return False
-    if dAB+dAC-dBC<min_difference:
-        return False
-    if dAB+dBC-dAC<min_difference:
-        return False
-    if dBC+dAC-dAB<min_difference:
-        return False
 
 
 def cal_transform_param(vector_a, vector_b):
