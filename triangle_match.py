@@ -1,7 +1,9 @@
 import random
 import numpy as np
 import math
-import queue
+import multiprocessing
+from queue import Queue
+
 def build_baseline_vectors_model(model_bifur_map):
     '''
 
@@ -135,7 +137,7 @@ def cluster_and_cal_max_support(data,min_support_rate,radius = 50):
     total_num = len(data)
     max_support_count = total_num * min_support_rate+1
     multip = 10e2
-    size_a = size_b = 2*multip
+    size_a = size_b = int(2*multip)
     support_matrix = np.zeros(shape=(size_a,size_b)).astype(np.uint32)
     for p in data:
         new_p = [p[0]*multip ,p[1]*multip ]
@@ -185,6 +187,76 @@ def cluster_and_cal_max_support(data,min_support_rate,radius = 50):
     return 0.0
 
 
+
+cur_total = 0
+size_a = size_b = int(10)
+support_matrix = np.zeros(shape=(size_a,size_b)).astype(np.uint32)
+# import cv2
+#
+# cv2.namedWindow('CLUSTER', cv2.WINDOW_AUTOSIZE)
+def dynamic_clustering(is_init,p=[0,0],multip = 100,radius=10, min_param_support = 0.6):
+    global size_a,size_b,support_matrix,cur_total
+    if is_init:
+        cur_total = 0
+        size_a = size_b = int(3*multip)
+        support_matrix = np.zeros(shape=(size_a, size_b)).astype(np.uint32)
+        return False
+    else:
+        new_p = [int(p[0]*multip+1.5*multip),int(p[1]*multip+1.5*multip)]
+        if new_p[0]>=size_a or new_p[1]>=size_b or new_p[0]<0 or new_p[1]<0:
+            return False
+
+        cur_total+=1
+        support_matrix[new_p[0],new_p[1]]+=1
+
+        # cv2.imshow('CLUSTER', (255*support_matrix.copy()/support_matrix.max()).astype(np.uint8))
+        # cv2.waitKey(1)
+
+        while True:
+            #bfs here:
+            nearest_p = []
+            search_matrix = np.zeros_like(support_matrix)
+            cells = [[1,0],[-1,0],[0,1],[0,-1]]
+            q = []
+            q.append([new_p,0])
+            search_matrix[new_p[0], new_p[1]] = 1
+            while len(q)!=0:
+                cur_p,cur_dist = q.pop(0)
+                if cur_dist>0 and support_matrix[cur_p[0],cur_p[1]]>0:
+                    nearest_p = cur_p
+                    break
+
+                if cur_dist+1>radius:
+                    continue
+                for c in cells:
+                    next_p = [cur_p[0]+c[0],cur_p[1]+c[1]]
+                    if 0<=next_p[0]<3*multip and 0<=next_p[1]<3*multip and \
+                            search_matrix[next_p[0],next_p[1]]==0:
+                        #haven't searched p
+                        q.append([next_p,cur_dist+1])
+                        search_matrix[next_p[0], next_p[1]] = 1
+
+            if len(nearest_p)!=0:
+                #we found a nearest point
+                d_i = support_matrix[new_p[0],new_p[1]]
+                support_matrix[new_p[0], new_p[1]]=0
+                d_j = support_matrix[nearest_p[0],nearest_p[1]]
+                support_matrix[nearest_p[0], nearest_p[1]]=0
+
+                d_k = d_i+d_j
+                if d_k/cur_total >= min_param_support and cur_total>100:
+                    #print('found max support')
+                    return True
+                else:
+                    new_a = int((new_p[0] *d_i +nearest_p[0]*d_j)/d_k)
+                    new_b = int((new_p[1] * d_i + nearest_p[1] * d_j)/d_k)
+                    support_matrix[new_a,new_b] = d_k
+                    new_p = [new_a,new_b]
+            else:
+                return False
+        return False
+
+
 def map_to_points(map):
     '''
     convert map representation into list of points.
@@ -215,7 +287,7 @@ def is_bad_triangle(A,B,C,triangle_ignore_len = 20,triangle_ignore_angle_cos = -
         return True
     return False
 
-def triange_match(model_bifur_map, test_bifur_map, max_baseline_failure, min_param_support=0.5,triangle_ignore_len = 20,triangle_ignore_angle_cos = -0.5 ):
+def triange_match(model_bifur_map, test_bifur_map, max_baseline_failure=0.2, min_param_support=0.5,triangle_ignore_len = 50,triangle_ignore_angle_cos = -0.5 ):
     model_baseline_vectors = build_baseline_vectors_model(model_bifur_map)
     model_bifur_points = map_to_points(model_bifur_map)
 
@@ -231,9 +303,11 @@ def triange_match(model_bifur_map, test_bifur_map, max_baseline_failure, min_par
     record=np.array(record)
 
     for baseline_vector in model_baseline_vectors:
-        if baseline_match_failure > max_baseline_failure:
+        if baseline_match_failure >= max_baseline_failure*model_baseline_vectors.shape[0]:
             return False
 
+        #init clustering
+        dynamic_clustering(True)
 
         np.random.shuffle(model_bifur_points)
         c_index = 0
@@ -266,16 +340,19 @@ def triange_match(model_bifur_map, test_bifur_map, max_baseline_failure, min_par
 
 
             template_z = get_template_triangle(baseline_vector, C)
-            similar_triangles = get_similar_triangles(test_bifur_map,record, template_z,triangle_ignore_len=triangle_ignore_len-2,triangle_ignore_angle_cos=triangle_ignore_angle_cos-0.05)
-
+            similar_triangles = get_similar_triangles(test_bifur_map,record, template_z,epsilon=20,triangle_ignore_len=triangle_ignore_len-2,triangle_ignore_angle_cos=triangle_ignore_angle_cos-0.05)
+            #print('similar_triangles Extracted ', C)
             for s in similar_triangles:
                 # if s[0] represents vector A'B'
-                all_transfrom_params.append(cal_transform_param(baseline_vector, s[0]))
+                a_b = cal_transform_param(baseline_vector, s[0])
+                if dynamic_clustering(False,a_b,min_param_support=min_param_support):
+                    return True
+                    #all_transfrom_params.append()
 
+        baseline_match_failure+=1
+        print(baseline_match_failure,'failed baseline')
         #all_transfrom_params = np.array(all_transfrom_params)
-        max_support = cluster_and_cal_max_support(all_transfrom_params,min_param_support)
-        if max_support > min_param_support:
-            return True
+        #max_support = cluster_and_cal_max_support(all_transfrom_params,min_param_support)
     return True
 
 

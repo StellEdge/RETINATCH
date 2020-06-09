@@ -8,8 +8,10 @@ from image_preprocessing import *
 CRZ:Main dish for retinatch
 '''
 from dataloader import get_fundus_images_data,get_fundus_images_data_Sidra
-from feature_extracting import extract_y_features, extract_y_feature
-from cntBifurcation import extract_circle_feature_single, extract_circle_features
+#from feature_extracting import extract_y_features, extract_y_feature
+#from cntBifurcation import extract_circle_feature_single, extract_circle_features
+from feature_extract_triangle import  extract_bifur_feature,extract_bifur_features
+from triangle_match import triange_match
 
 data_saving_path = 'saving'
 feature_saving_paths = {
@@ -154,12 +156,19 @@ def vote_for_match_result(image_des, data, model_points, models, threshold=5, vo
     return best_index, best_vote_rate
 
 
+def find_single_match(image_des, models, max_baseline_failure=6,min_param_support=0.5,triangle_ignore_len=20,triangle_ignore_angle_cos=-0.5,verbose=False):
+    for index, model_des in enumerate(models):
+        result = triange_match(model_des,image_des,max_baseline_failure,min_param_support,triangle_ignore_len,triangle_ignore_angle_cos)
+        if result:
+            return index,0
+    return -1,0
+
 def main():
     init_saving_folders()
-    FORCE_RELOAD = True
+    FORCE_RELOAD = False
     #labels, data = get_fundus_images_data(data_folder)
     data = get_fundus_images_data_Sidra()
-
+    limiter = 10
     # find all l1 images
     # new_data = []
     # for d in data:
@@ -171,7 +180,8 @@ def main():
             and os.path.exists(feature_saving_paths['des'])) or FORCE_RELOAD:
         print('Save file not found, extracting features.')
         kp = []
-        des = extract_circle_features(data)
+        #des = extract_circle_features(data)
+        des = extract_bifur_features(data)
         np.save(feature_saving_paths['kp'], kp)
         np.save(feature_saving_paths['des'], des)
     else:
@@ -179,17 +189,17 @@ def main():
         des = np.load(feature_saving_paths['des'], allow_pickle=True)
     print('features loaded.')
 
+    des = des[:limiter]
     print('total model number:', des.shape[0])
 
-    vote_trs = [0.4, 0.5, 0.6, 0.7, 0.8]
-    trs = [1,2,3, 4, 5]
+
     total = 20
     # cv2.namedWindow('MatchResult', cv2.WINDOW_NORMAL)
     if not os.path.exists(feature_saving_paths['test']) or FORCE_RELOAD:
         test_des = []
         for t,p in zip(range(1, 1 + total),os.listdir('Sidra_custom')):
             # match_res,best_dist = find_best_match_index(data_folder+ '/'+str(t)+'/'+str(t)+'_l2.jpg',data,kp,des,threshold)
-            d = extract_circle_feature_single(os.path.join('Sidra_custom',p,'2.jpg'))
+            d = extract_bifur_feature(os.path.join('Sidra_custom',p,'2.jpg'))
             test_des.append(d)
 
         test_des = np.array(test_des)
@@ -197,9 +207,12 @@ def main():
     else:
         test_des = np.load(feature_saving_paths['test'], allow_pickle=True)
 
+    test_des=test_des[:limiter]
     print('load complete')
     plt.figure()
 
+    vote_trs = [0.5]
+    trs = [0.1]
     for vote_threshold in vote_trs:
         all_acc = []
         all_fal = []
@@ -208,9 +221,10 @@ def main():
             false_match = 0
             for t in range(1, 1 + total):
                 # match_res,best_dist = find_best_match_index(data_folder+ '/'+str(t)+'/'+str(t)+'_l2.jpg',data,kp,des,threshold)
-                match_res, best_dist = vote_for_match_result(test_des[t - 1], data,
-                                                             kp, des, threshold=threshold,
-                                                             vote_threshold=vote_threshold)
+                #match_res, best_dist = vote_for_match_result(test_des[t - 1], data,
+                                                             # kp, des, threshold=threshold,
+                                                             # vote_threshold=vote_threshold)
+                match_res ,best_dist = find_single_match(test_des[t - 1],des,max_baseline_failure=threshold,min_param_support=vote_threshold)
                 if match_res == -1:
                     print('Match failed.')
                 else:
@@ -228,7 +242,7 @@ def main():
         # plt.plot(trs,all_fal,label='False acc '+str(vote_threshold))
         plt.plot(trs, all_acc, label='Acc ' + str(vote_threshold))
     plt.legend(loc='best')
-    plt.savefig('result_circle.png', format='png')
+    plt.savefig('result_triangle.png', format='png')
     plt.show()
 
 
