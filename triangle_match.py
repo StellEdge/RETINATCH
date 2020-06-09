@@ -46,45 +46,50 @@ def get_template_triangle(baseline_vector,c):
     return z
 
 
-def get_similar_triangles(test_bifur_map,z,epsilon=2.0,triangle_ignore_len = 20,triangle_ignore_angle_cos = -0.5):
+def get_similar_triangles(test_bifur_map,record,z,epsilon=2,triangle_ignore_len = 20,triangle_ignore_angle_cos = -0.5):
     '''
 
     :param test_bifur_map: the bifurcation point map of test, include n points.
+    :param record: a array storing the bifurcation points of test, include n points.
     :param z: rotation factor z of template triangle. z=[r,theta]
-    :param epsilon: the deviation of point C
+    :param epsilon: the deviation of point C (int)
     :return: array of similar triangles. Cn_2 * [[A'B'],C]
     '''
-    record={}
     triangles=[]
-    for y in range(test_bifur_map.shape[0]):
-        for x in range(test_bifur_map.shape[1]):
-            if test_bifur_map[y][x]==1:
-                record[(y,x)]=1
-
     tmp=record.copy()
-    for A in record.keys():
-        del tmp[A]
-        for B in tmp.keys():
-            C=rotation(test_bifur_map.shape,A,B,z,epsilon)
+    for i in range(record.shape[0]):
+        A=record[i]
+        for j in range(i+1,record.shape[0]):
+            B=record[j]
+            C=rotation(A,B,z)
             for c in C:
-                C_real=find_C(c,record,epsilon)
-                for c_real in C_real:
-                    A_array=np.array([A[0],A[1]])
-                    B_array=np.array([B[0],B[1]])
-                    if not is_bad_triangle(A_array,B_array,np.array(c_real),triangle_ignore_len,triangle_ignore_angle_cos):
-                        triangles.append([[A_array,B_array],c_real])
+                x_min=int(max(0,c[1]-epsilon))
+                x_max=int(min(test_bifur_map.shape[1],c[1]+epsilon+1))
+                y_min=int(max(0,c[0]-epsilon))
+                y_max=int(min(test_bifur_map.shape[0],c[0]+epsilon+1))
+                if x_min>=test_bifur_map.shape[1] or y_min>=test_bifur_map.shape[0] or x_max<0 or y_max<0 or y_min>y_max or x_min>x_max:
+                    continue
+                tmp=test_bifur_map[y_min:y_max]
+                tmp=tmp[x_min:x_max]
+                s=np.sum(tmp)
+                if s==0:
+                    continue
+                C_real=[]
+                for y in range(y_min,y_max):
+                    for x in range(x_min,x_max):
+                        if test_bifur_map[y][x]==1:
+                            C=np.array([y,x])
+                            if not is_bad_triangle(A,B,C,triangle_ignore_len,triangle_ignore_angle_cos):
+                                triangles.append([[A,B],C])
 
-    #print(len(triangles))
     return np.array(triangles)
 
 
-def rotation(shape,A,B,z,epsilon):
+def rotation(A,B,z):
     '''
 
-    shape: the shape of image (np.array)
-    A, B: two points (tuple)
+    A, B: two points (np.array)
     z: rotation factor z of template triangle (np.array)
-    epsilon: the deviation of point C (double)
     return: two points C1, C2 (np.array)
     '''
     C=[]
@@ -95,28 +100,11 @@ def rotation(shape,A,B,z,epsilon):
     delta_x=z[0]*(x*cos-y*sin)
     delta_y=z[0]*(y*cos+x*sin)
     C1=[A[0]+delta_y,A[1]+delta_x]
-    if C1[0]>=-epsilon and C1[0]<shape[0]+epsilon and C1[1]>=-epsilon and C1[1]<shape[1]+epsilon:
-        C.append(C1)
+    C.append(C1)
     C2=[B[0]-delta_y,B[1]-delta_x]
-    if C2[0]>=-epsilon and C2[0]<shape[0]+epsilon and C2[1]>=-epsilon and C2[1]<shape[1]+epsilon:
-        C.append(C2)
+    C.append(C2)
+    C=np.array(C)
     return C
-
-def find_C(C,record,epsilon):
-    '''
-
-    C: the target point (np.array)
-    record: a dict storing bifurcation points (dict)
-    epsilon: the deviation of point C (double)
-    return: the real point C_real (np.array)
-    '''
-    C_real=[]
-    for key in record.keys():
-        distance=np.sqrt(pow(C[0]-key[0],2)+pow(C[1]-key[1],2))
-        if distance<epsilon:
-            C_real.append([key[0],key[1]])
-
-    return C_real
 
 
 def cal_transform_param(vector_a, vector_b):
@@ -234,6 +222,14 @@ def triange_match(model_bifur_map, test_bifur_map, max_baseline_failure, min_par
 
     baseline_match_failure = 0
     print('ready to match')
+
+    record=[]
+    for y in range(test_bifur_map.shape[0]):
+        for x in range(test_bifur_map.shape[1]):
+            if test_bifur_map[y][x]==1:
+                record.append([y,x])
+    record=np.array(record)
+
     for baseline_vector in model_baseline_vectors:
         if baseline_match_failure > max_baseline_failure:
             return False
@@ -270,7 +266,7 @@ def triange_match(model_bifur_map, test_bifur_map, max_baseline_failure, min_par
 
 
             template_z = get_template_triangle(baseline_vector, C)
-            similar_triangles = get_similar_triangles(test_bifur_map, template_z,triangle_ignore_len=triangle_ignore_len-2,triangle_ignore_angle_cos=triangle_ignore_angle_cos-0.05)
+            similar_triangles = get_similar_triangles(test_bifur_map,record, template_z,triangle_ignore_len=triangle_ignore_len-2,triangle_ignore_angle_cos=triangle_ignore_angle_cos-0.05)
 
             for s in similar_triangles:
                 # if s[0] represents vector A'B'
