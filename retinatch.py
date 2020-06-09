@@ -189,7 +189,7 @@ def main():
         des = np.load(feature_saving_paths['des'], allow_pickle=True)
     print('features loaded.')
 
-    des = des[:limiter]
+    des = des[:3]
     print('total model number:', des.shape[0])
 
 
@@ -212,7 +212,7 @@ def main():
     plt.figure()
 
     vote_trs = [0.5]
-    trs = [0.1]
+    trs = [0.15]
     for vote_threshold in vote_trs:
         all_acc = []
         all_fal = []
