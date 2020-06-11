@@ -50,7 +50,8 @@ def get_template_triangle(baseline_vector, c):
     return z
 
 
-def get_similar_triangles(test_bifur_map, record, z, epsilon=2, triangle_ignore_len=20, triangle_ignore_angle_cos=-0.5):
+def get_similar_triangles(test_bifur_map, record, z, epsilon=20,
+                          triangle_ignore_len=20, triangle_ignore_angle_cos=-0.5,verbose = True):
     '''
 
     :param test_bifur_map: the bifurcation point map of test, include n points.
@@ -61,18 +62,36 @@ def get_similar_triangles(test_bifur_map, record, z, epsilon=2, triangle_ignore_
     '''
     triangles = []
     tmp = record.copy()
+
+    if verbose:
+        cv2.namedWindow('similiar', cv2.WINDOW_AUTOSIZE)
+
+        right_img = np.zeros(shape=(test_bifur_map.shape[0], test_bifur_map.shape[1], 3)).astype(np.uint8)
+        for j in range(test_bifur_map.shape[0]):
+            for k in range(test_bifur_map.shape[1]):
+                if test_bifur_map[j, k] > 0:
+                    cv2.circle(right_img, center=(j, k), radius=4, color=(255, 255, 0))
+
     for i in range(record.shape[0]):
         A = record[i]
         for j in range(i + 1, record.shape[0]):
             B = record[j]
             C = rotation(A, B, z)
+
+            if verbose:
+                new_right_img = right_img.copy()
+                for c in C:
+                    cv2.polylines(new_right_img, [np.array([A, B, c]).astype(np.int32)], True,
+                                  (0, 255, 255), 1)
+                point_flag = False
+
             for c in C:
                 x_min = int(max(0, c[1] - epsilon))
                 x_max = int(min(test_bifur_map.shape[1], c[1] + epsilon + 1))
                 y_min = int(max(0, c[0] - epsilon))
                 y_max = int(min(test_bifur_map.shape[0], c[0] + epsilon + 1))
-                if x_min >= test_bifur_map.shape[1] or y_min >= test_bifur_map.shape[
-                    0] or x_max < 0 or y_max < 0 or y_min > y_max or x_min > x_max:
+                if x_min >= test_bifur_map.shape[1] or y_min >= test_bifur_map.shape[0] or\
+                        x_max < 0 or y_max < 0 or y_min > y_max or x_min > x_max:
                     continue
                 tmp = test_bifur_map[y_min:y_max]
                 tmp = tmp[x_min:x_max]
@@ -82,10 +101,25 @@ def get_similar_triangles(test_bifur_map, record, z, epsilon=2, triangle_ignore_
                 C_real = []
                 for y in range(y_min, y_max):
                     for x in range(x_min, x_max):
-                        if test_bifur_map[y][x] == 1:
-                            C = np.array([y, x])
-                            if not is_bad_triangle(A, B, C, triangle_ignore_len, triangle_ignore_angle_cos):
-                                triangles.append([[A, B], C])
+                        #add euclidian dist
+                        if test_bifur_map[y][x] == 1 and (x-c[1])**2+(y-c[0])**2<=epsilon**2:
+                            good_point = np.array([y, x])
+
+                            if verbose:
+                                point_flag = True
+                                cv2.polylines(new_right_img, [np.array([A, B, good_point]).astype(np.int32)], True,
+                                              (255, 255, 0), 1)
+
+                            if not is_bad_triangle(A, B, good_point, triangle_ignore_len, triangle_ignore_angle_cos):
+                                triangles.append([[A, B], good_point])
+                            # don't limit them here?
+                            # if not is_bad_triangle(A, B, C, triangle_ignore_len, triangle_ignore_angle_cos):
+                            #     triangles.append([[A, B], C])
+            if verbose:
+                cv2.imshow('similiar', new_right_img)
+                cv2.waitKey(1)
+                if cv2.waitKey(0) & 0xff == ord('c'):   #point_flag and
+                    cv2.waitKey(1)
 
     return np.array(triangles)
 
@@ -328,13 +362,27 @@ def verify_baseline(baseline_vector, model_bifur_points, test_bifur_map, test_bi
     return False
 
 
-def triange_match(model_bifur_map, test_bifur_map, max_baseline_failure=0.2, min_param_support=0.5,
-                  triangle_ignore_len=30, triangle_ignore_angle_cos=-0.5):
+def triange_match(model_bifur_map, test_bifur_map, max_baseline_failure, min_param_support,
+                  triangle_ignore_len, triangle_ignore_angle_cos,verbose = True):
     model_baseline_vectors = build_baseline_vectors_model(model_bifur_map)
     model_bifur_points = map_to_points(model_bifur_map)
 
     baseline_match_failure = 0
     print('ready to match')
+
+    if verbose:
+        cv2.namedWindow('triangles',cv2.WINDOW_AUTOSIZE)
+        left_img = np.zeros(shape=(model_bifur_map.shape[0],model_bifur_map.shape[1],3)).astype(np.uint8)
+        for j in range(model_bifur_map.shape[0]):
+            for k in range(model_bifur_map.shape[1]):
+                if model_bifur_map[j, k] > 0:
+                    cv2.circle(left_img, center=(j, k), radius=4, color=(255, 255, 0))
+        right_img = np.zeros(shape=(test_bifur_map.shape[0],test_bifur_map.shape[1],3)).astype(np.uint8)
+        for j in range(test_bifur_map.shape[0]):
+            for k in range(test_bifur_map.shape[1]):
+                if test_bifur_map[j, k] > 0:
+                    cv2.circle(right_img, center=(j, k), radius=4, color=(255, 255, 0))
+
 
     test_bifur_points = []
     for y in range(test_bifur_map.shape[0]):
@@ -380,11 +428,30 @@ def triange_match(model_bifur_map, test_bifur_map, max_baseline_failure=0.2, min
                                triangle_ignore_angle_cos):
                 continue
 
+            if verbose:
+                new_left_img = left_img.copy()
+                new_right_img = right_img.copy()
+                cv2.polylines(new_left_img, [np.array([baseline_vector[0], baseline_vector[1], C])], True, (122, 255, 0), 1)
+                combine_img = np.hstack((new_left_img, new_right_img))
+                cv2.imshow('triangles',combine_img)
+                cv2.waitKey(1)
+
             template_z = get_template_triangle(baseline_vector, C)
             similar_triangles = get_similar_triangles(test_bifur_map, test_bifur_points, template_z, epsilon=20,
                                                       triangle_ignore_len=triangle_ignore_len - 2,
                                                       triangle_ignore_angle_cos=triangle_ignore_angle_cos - 0.05)
-            # print(similar_triangles.shape[0],'similar_triangles Extracted ', C)
+            if verbose:
+                print(similar_triangles.shape[0],'similar_triangles Extracted ', C)
+
+                for s in similar_triangles:
+                    cv2.polylines(new_right_img, [np.array([s[0][0], s[0][1], s[1].astype(np.int32)])], True, (0, 255, 255), 1)
+                combine_img = np.hstack((new_left_img,new_right_img))
+                cv2.imshow('triangles',combine_img)
+                cv2.waitKey(1)
+                if cv2.waitKey(0) & 0xff == ord('c'):
+                    cv2.waitKey(1)
+
+
             for s in similar_triangles:
                 # if s[0] represents vector A'B'
                 a_b = cal_transform_param(baseline_vector, s[0])
