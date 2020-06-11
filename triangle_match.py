@@ -50,8 +50,8 @@ def get_template_triangle(baseline_vector, c):
     return z
 
 
-def get_similar_triangles(test_bifur_map, record, z, epsilon=20,
-                          triangle_ignore_len=20, triangle_ignore_angle_cos=-0.5,verbose = False):
+def get_similar_triangles(test_bifur_map, record,baseline, z, epsilon,
+                          triangle_ignore_len, triangle_ignore_angle_cos, verbose= True):
     '''
 
     :param test_bifur_map: the bifurcation point map of test, include n points.
@@ -61,6 +61,7 @@ def get_similar_triangles(test_bifur_map, record, z, epsilon=20,
     :return: array of similar triangles. Cn_2 * [[A'B'],C]
     '''
     triangles = []
+    point_Cs = []
     tmp = record.copy()
 
     if verbose:
@@ -76,13 +77,20 @@ def get_similar_triangles(test_bifur_map, record, z, epsilon=20,
         A = record[i]
         for j in range(i + 1, record.shape[0]):
             B = record[j]
+
+            dist_AB = np.linalg.norm(B - A)
+            dist_base = np.linalg.norm(baseline[0] - baseline[1])
+            ratio = dist_AB / dist_base
+            if ratio>1.2 or ratio <0.8:
+                continue
+
             C = rotation(A, B, z)
 
             if verbose:
                 new_right_img = right_img.copy()
-                #for c in C:
-                #    cv2.polylines(new_right_img, [np.array([A, B, c]).astype(np.int32)], True,
-                #                  (0, 255, 255), 1)
+                for c in C:
+                   cv2.polylines(new_right_img, [np.array([A, B, c]).astype(np.int32)], True,
+                                 (0, 255, 255), 1)
                 point_flag = False
 
             for c in C:
@@ -90,17 +98,28 @@ def get_similar_triangles(test_bifur_map, record, z, epsilon=20,
                 x_max = int(min(test_bifur_map.shape[1], c[1] + epsilon + 1))
                 y_min = int(max(0, c[0] - epsilon))
                 y_max = int(min(test_bifur_map.shape[0], c[0] + epsilon + 1))
-                if x_min >= test_bifur_map.shape[1] or y_min >= test_bifur_map.shape[0] or\
+                if x_min >= test_bifur_map.shape[1] or y_min >= test_bifur_map.shape[0] or \
                         x_max < 0 or y_max < 0 or y_min > y_max or x_min > x_max:
                     continue
-                tmp = test_bifur_map[y_min:y_max,x_min:x_max]
+                tmp = test_bifur_map[y_min:y_max, x_min:x_max]
                 s = np.sum(tmp)
                 if s == 0:
                     continue
+                # Here if we found C within range of C' add once only.
+                else:
+                    if not is_bad_triangle(A, B, c.astype(np.int32), triangle_ignore_len, triangle_ignore_angle_cos):
+                        if verbose:
+                            point_flag = True
+                            cv2.polylines(right_img, [np.array([A, B, c.astype(np.int32)]).astype(np.int32)], True,
+                                          (255, 255, 0), 1)
+                            cv2.polylines(new_right_img, [np.array([A, B, c.astype(np.int32)]).astype(np.int32)], True,
+                                          (255, 255, 0), 1)
+                        triangles.append([[A, B], c.astype(np.int32)])
+                '''
                 for y in range(y_min, y_max):
                     for x in range(x_min, x_max):
-                        #add euclidian dist
-                        if test_bifur_map[y][x] == 1 and (x-c[1])**2+(y-c[0])**2<=epsilon**2:
+                        # add euclidian dist
+                        if test_bifur_map[y][x] == 1 and (x - c[1]) ** 2 + (y - c[0]) ** 2 <= epsilon ** 2:
                             good_point = np.array([y, x])
 
                             if verbose:
@@ -110,14 +129,13 @@ def get_similar_triangles(test_bifur_map, record, z, epsilon=20,
 
                             if not is_bad_triangle(A, B, good_point, triangle_ignore_len, triangle_ignore_angle_cos):
                                 triangles.append([[A, B], good_point])
-                            # don't limit them here?
-                            # if not is_bad_triangle(A, B, C, triangle_ignore_len, triangle_ignore_angle_cos):
-                            #     triangles.append([[A, B], C])
+
+                '''
             if verbose:
                 cv2.imshow('similiar', new_right_img)
                 cv2.waitKey(1)
-                if cv2.waitKey(0) & 0xff == ord('c'):   #point_flag and
-                    cv2.waitKey(1)
+                # if cv2.waitKey(0) & 0xff == ord('c'):  # point_flag and
+                #     cv2.waitKey(1)
 
     return np.array(triangles)
 
@@ -361,7 +379,7 @@ def verify_baseline(baseline_vector, model_bifur_points, test_bifur_map, test_bi
 
 
 def triange_match(model_bifur_map, test_bifur_map, max_baseline_failure, min_param_support,
-                  triangle_ignore_len, triangle_ignore_angle_cos,verbose = True):
+                  triangle_ignore_len, triangle_ignore_angle_cos, verbose=True):
     model_baseline_vectors = build_baseline_vectors_model(model_bifur_map)
     model_bifur_points = map_to_points(model_bifur_map)
 
@@ -369,18 +387,17 @@ def triange_match(model_bifur_map, test_bifur_map, max_baseline_failure, min_par
     print('ready to match')
 
     if verbose:
-        cv2.namedWindow('triangles',cv2.WINDOW_AUTOSIZE)
-        left_img = np.zeros(shape=(model_bifur_map.shape[0],model_bifur_map.shape[1],3)).astype(np.uint8)
+        cv2.namedWindow('triangles', cv2.WINDOW_AUTOSIZE)
+        left_img = np.zeros(shape=(model_bifur_map.shape[0], model_bifur_map.shape[1], 3)).astype(np.uint8)
         for j in range(model_bifur_map.shape[0]):
             for k in range(model_bifur_map.shape[1]):
                 if model_bifur_map[j, k] > 0:
                     cv2.circle(left_img, center=(j, k), radius=4, color=(255, 255, 0))
-        right_img = np.zeros(shape=(test_bifur_map.shape[0],test_bifur_map.shape[1],3)).astype(np.uint8)
+        right_img = np.zeros(shape=(test_bifur_map.shape[0], test_bifur_map.shape[1], 3)).astype(np.uint8)
         for j in range(test_bifur_map.shape[0]):
             for k in range(test_bifur_map.shape[1]):
                 if test_bifur_map[j, k] > 0:
                     cv2.circle(right_img, center=(j, k), radius=4, color=(255, 255, 0))
-
 
     test_bifur_points = []
     for y in range(test_bifur_map.shape[0]):
@@ -429,26 +446,27 @@ def triange_match(model_bifur_map, test_bifur_map, max_baseline_failure, min_par
             if verbose:
                 new_left_img = left_img.copy()
                 new_right_img = right_img.copy()
-                cv2.polylines(new_left_img, [np.array([baseline_vector[0], baseline_vector[1], C])], True, (122, 255, 0), 1)
+                cv2.polylines(new_left_img, [np.array([baseline_vector[0], baseline_vector[1], C])], True,
+                              (122, 255, 0), 1)
                 combine_img = np.hstack((new_left_img, new_right_img))
-                cv2.imshow('triangles',combine_img)
+                cv2.imshow('triangles', combine_img)
                 cv2.waitKey(1)
 
             template_z = get_template_triangle(baseline_vector, C)
-            similar_triangles = get_similar_triangles(test_bifur_map, test_bifur_points, template_z, epsilon=5,
-                                                      triangle_ignore_len=triangle_ignore_len - 2,
+            similar_triangles = get_similar_triangles(test_bifur_map, test_bifur_points,baseline_vector, template_z, epsilon=5,
+                                                      triangle_ignore_len=triangle_ignore_len *0.8,
                                                       triangle_ignore_angle_cos=triangle_ignore_angle_cos - 0.05)
             if verbose:
-                print(similar_triangles.shape[0],'similar_triangles Extracted ', C)
+                print(similar_triangles.shape[0], 'similar_triangles Extracted ', C)
 
                 for s in similar_triangles:
-                    cv2.polylines(new_right_img, [np.array([s[0][0], s[0][1], s[1].astype(np.int32)])], True, (0, 255, 255), 1)
-                combine_img = np.hstack((new_left_img,new_right_img))
-                cv2.imshow('triangles',combine_img)
+                    cv2.polylines(new_right_img, [np.array([s[0][0], s[0][1], s[1].astype(np.int32)])], True,
+                                  (0, 255, 255), 1)
+                combine_img = np.hstack((new_left_img, new_right_img))
+                cv2.imshow('triangles', combine_img)
                 cv2.waitKey(1)
                 if cv2.waitKey(0) & 0xff == ord('c'):
                     cv2.waitKey(1)
-
 
             for s in similar_triangles:
                 # if s[0] represents vector A'B'
@@ -457,7 +475,7 @@ def triange_match(model_bifur_map, test_bifur_map, max_baseline_failure, min_par
                     return True
 
         baseline_match_failure += 1
-        #print(baseline_match_failure, 'failed baseline')
+        # print(baseline_match_failure, 'failed baseline')
 
     return False
 
@@ -480,18 +498,19 @@ if __name__ == '__main__':
         return bifurcation_points
 
 
-    for i in range(1,5):
-        model_image = read_image_and_preprocess('Sidra_custom/0'+str(i)+'/1.jpg')
-        for j in range(1,2):
-            test_image = read_image_and_preprocess('Sidra_custom/0'+str(j)+'/2.jpg')
-            start=time.time()
-            res = triange_match(extract_bifurcation(model_image), extract_bifurcation(test_image), 0.1, 0.6,triangle_ignore_len=20, triangle_ignore_angle_cos=-0.5,verbose=False)
-            end=time.time()
-            t=str(i)+' '+str(j)+' result:'+str(res)+',time cost:'+str(end-start)+'s'
+    for i in range(1, 5):
+        model_image = read_image_and_preprocess('Sidra_custom/0' + str(i) + '/1.jpg')
+        for j in range(1, 2):
+            test_image = read_image_and_preprocess('Sidra_custom/0' + str(j) + '/2.jpg')
+            start = time.time()
+            res = triange_match(extract_bifurcation(model_image), extract_bifurcation(test_image), 0.1, 0.6,
+                                triangle_ignore_len=20, triangle_ignore_angle_cos=-0.5, verbose=False)
+            end = time.time()
+            t = str(i) + ' ' + str(j) + ' result:' + str(res) + ',time cost:' + str(end - start) + 's'
             print(t)
 
-    #model_image = read_image_and_preprocess('Sidra_custom/03/1.jpg')
-    #test_image = read_image_and_preprocess('Sidra_custom/03/2.jpg')
+    # model_image = read_image_and_preprocess('Sidra_custom/03/1.jpg')
+    # test_image = read_image_and_preprocess('Sidra_custom/03/2.jpg')
 
-    #res = triange_match(extract_bifurcation(model_image), extract_bifurcation(test_image), 0.2, 0.6,triangle_ignore_len=20, triangle_ignore_angle_cos=-0.5,verbose=False)
-    #print(res)
+    # res = triange_match(extract_bifurcation(model_image), extract_bifurcation(test_image), 0.2, 0.6,triangle_ignore_len=20, triangle_ignore_angle_cos=-0.5,verbose=False)
+    # print(res)
