@@ -51,7 +51,7 @@ def get_template_triangle(baseline_vector, c):
 
 
 def get_similar_triangles(test_bifur_map, record, z, epsilon=20,
-                          triangle_ignore_len=20, triangle_ignore_angle_cos=-0.5,verbose = True):
+                          triangle_ignore_len=20, triangle_ignore_angle_cos=-0.5,verbose = False):
     '''
 
     :param test_bifur_map: the bifurcation point map of test, include n points.
@@ -80,9 +80,9 @@ def get_similar_triangles(test_bifur_map, record, z, epsilon=20,
 
             if verbose:
                 new_right_img = right_img.copy()
-                for c in C:
-                    cv2.polylines(new_right_img, [np.array([A, B, c]).astype(np.int32)], True,
-                                  (0, 255, 255), 1)
+                #for c in C:
+                #    cv2.polylines(new_right_img, [np.array([A, B, c]).astype(np.int32)], True,
+                #                  (0, 255, 255), 1)
                 point_flag = False
 
             for c in C:
@@ -93,12 +93,10 @@ def get_similar_triangles(test_bifur_map, record, z, epsilon=20,
                 if x_min >= test_bifur_map.shape[1] or y_min >= test_bifur_map.shape[0] or\
                         x_max < 0 or y_max < 0 or y_min > y_max or x_min > x_max:
                     continue
-                tmp = test_bifur_map[y_min:y_max]
-                tmp = tmp[x_min:x_max]
+                tmp = test_bifur_map[y_min:y_max,x_min:x_max]
                 s = np.sum(tmp)
                 if s == 0:
                     continue
-                C_real = []
                 for y in range(y_min, y_max):
                     for x in range(x_min, x_max):
                         #add euclidian dist
@@ -437,7 +435,7 @@ def triange_match(model_bifur_map, test_bifur_map, max_baseline_failure, min_par
                 cv2.waitKey(1)
 
             template_z = get_template_triangle(baseline_vector, C)
-            similar_triangles = get_similar_triangles(test_bifur_map, test_bifur_points, template_z, epsilon=20,
+            similar_triangles = get_similar_triangles(test_bifur_map, test_bifur_points, template_z, epsilon=5,
                                                       triangle_ignore_len=triangle_ignore_len - 2,
                                                       triangle_ignore_angle_cos=triangle_ignore_angle_cos - 0.05)
             if verbose:
@@ -459,12 +457,13 @@ def triange_match(model_bifur_map, test_bifur_map, max_baseline_failure, min_par
                     return True
 
         baseline_match_failure += 1
-        print(baseline_match_failure, 'failed baseline')
+        #print(baseline_match_failure, 'failed baseline')
 
     return False
 
 
 if __name__ == '__main__':
+    import time
     import cv2
     from image_preprocessing import image_preprocess_display, image_thinning, read_image_and_preprocess, \
         get_minutiae_values
@@ -481,8 +480,18 @@ if __name__ == '__main__':
         return bifurcation_points
 
 
-    model_image = read_image_and_preprocess('Sidra_custom/02/1.jpg')
-    test_image = read_image_and_preprocess('Sidra_custom/02/2.jpg')
+    for i in range(1,5):
+        model_image = read_image_and_preprocess('Sidra_custom/0'+str(i)+'/1.jpg')
+        for j in range(1,2):
+            test_image = read_image_and_preprocess('Sidra_custom/0'+str(j)+'/2.jpg')
+            start=time.time()
+            res = triange_match(extract_bifurcation(model_image), extract_bifurcation(test_image), 0.1, 0.6,triangle_ignore_len=20, triangle_ignore_angle_cos=-0.5,verbose=False)
+            end=time.time()
+            t=str(i)+' '+str(j)+' result:'+str(res)+',time cost:'+str(end-start)+'s'
+            print(t)
 
-    res = triange_match(extract_bifurcation(model_image), extract_bifurcation(test_image), 6, 0.6)
-    print(res)
+    #model_image = read_image_and_preprocess('Sidra_custom/03/1.jpg')
+    #test_image = read_image_and_preprocess('Sidra_custom/03/2.jpg')
+
+    #res = triange_match(extract_bifurcation(model_image), extract_bifurcation(test_image), 0.2, 0.6,triangle_ignore_len=20, triangle_ignore_angle_cos=-0.5,verbose=False)
+    #print(res)
