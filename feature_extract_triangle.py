@@ -1,6 +1,6 @@
 import cv2
 import numpy as np
-from image_preprocessing import read_image_and_preprocess, get_minutiae_values
+from image_preprocessing import read_image_and_preprocess, get_minutiae_values,image_preprocess
 
 cells = [(-1, -1),
          (-1, 0),
@@ -30,6 +30,38 @@ def get_minutiae_values(img):
     crossings /= 2
     return crossings
 
+from dishPosition import dishPosition
+def disk_mask(oriPic,bifur_map,image_radius=int(825*6/17),verbose = False):
+    """
+    :param n: size ot return list
+    :param stepSize:  r distance between two circle
+    :param oriPic:  picture with original color
+    :param biPic:  bi-picture with only 1-pixel width vessels
+    :return:
+    """
+    centerX, centerY = dishPosition(oriPic)
+    img_centerY = int(oriPic.shape[0]/2)
+    img_centerX = int(oriPic.shape[1]/2)
+
+
+    max_radius = 150
+    center_distance = np.sqrt((centerX-img_centerX)**2+(centerY-img_centerY)**2)
+    over_radius = max_radius + center_distance
+    if over_radius>image_radius:
+        print('Failed to extract: Disk is too far away from center.')
+        return np.zeros_like(bifur_map)
+    if verbose:
+        print(over_radius,image_radius)
+
+    for j in range(bifur_map.shape[0]):
+        for k in range(bifur_map.shape[1]):
+            if bifur_map[j,k]>0:
+                dis = (j - centerY) * (j - centerY) + (k - centerX) * (k - centerX)
+                dis = np.sqrt(dis)
+                if dis > max_radius:
+                    bifur_map[j, k]=0
+    return bifur_map
+
 def extract_bifurcation(img):
     '''
     extract bifurcation and ending points.
@@ -41,8 +73,12 @@ def extract_bifurcation(img):
     return bifurcation_points
 
 def extract_bifur_feature(image_name):
-    image = read_image_and_preprocess(image_name)
-    bifur_map = extract_bifurcation(image)
+    image = cv2.imread(image_name)
+    if image is not None:
+        pro_image = image_preprocess(image)
+
+        bifur_map = extract_bifurcation(pro_image)
+        bifur_map = disk_mask(image,bifur_map)
     return bifur_map
 
 def extract_bifur_features(image_names):

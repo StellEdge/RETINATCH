@@ -156,7 +156,7 @@ def vote_for_match_result(image_des, data, model_points, models, threshold=5, vo
     return best_index, best_vote_rate
 
 
-def find_single_match(image_des, models, max_baseline_failure=0.2,min_param_support=0.5,triangle_ignore_len=200,triangle_ignore_angle_cos=0.1,verbose=False):
+def find_single_match(image_des, models, max_baseline_failure=0.2,min_param_support=0.5,triangle_ignore_len=50,triangle_ignore_angle_cos=0.1,verbose=False):
     for index, model_des in enumerate(models):
         result = triange_match(model_des,image_des,max_baseline_failure,min_param_support,triangle_ignore_len,triangle_ignore_angle_cos)
         if result:
@@ -190,7 +190,7 @@ def main():
         des = np.load(feature_saving_paths['des'], allow_pickle=True)
     print('features loaded.')
 
-    des = des[:3]
+    des = des[:limiter]
     print('total model number:', des.shape[0])
 
 
