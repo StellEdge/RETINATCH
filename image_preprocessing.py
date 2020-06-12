@@ -162,13 +162,15 @@ def crop_mask_image(img,padding=25):
 
     return r_img
 
+
+IMG_SIZE_MACRO=(384,384)
 def image_preprocess(img):
     #split channels, grab green channel only.
     b, g, r = cv2.split(img)
     ratio = g.shape[0]/g.shape[1]
     img0 = cv2.resize(g, (int(1736*ratio),1736), interpolation=cv2.INTER_AREA)
     img0 = crop_mask_image(img0)
-    img0 = cv2.resize(img0,(600,600),interpolation=cv2.INTER_AREA)
+    img0 = cv2.resize(img0,IMG_SIZE_MACRO,interpolation=cv2.INTER_AREA)
     img1 = vessel_extract_api(img0)
     img2 = hilditch(img1)
     img2 = smooth_image(img2)
@@ -181,7 +183,7 @@ def image_preprocess_display(img):
     ratio = g.shape[0]/g.shape[1]
     img0 = cv2.resize(g, (int(1736*ratio),1736 ), interpolation=cv2.INTER_AREA)
     img0 = crop_mask_image(img0)
-    img0 = cv2.resize(img0,(600,600),interpolation=cv2.INTER_AREA)
+    img0 = cv2.resize(img0,IMG_SIZE_MACRO,interpolation=cv2.INTER_AREA)
     return img0
 
 def image_thinning(img):

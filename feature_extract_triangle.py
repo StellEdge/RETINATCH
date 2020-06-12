@@ -31,7 +31,7 @@ def get_minutiae_values(img):
     return crossings
 
 from dishPosition import dishPosition
-def disk_mask(oriPic,bifur_map,image_radius=int(825*6/17),verbose = True):
+def disk_mask(oriPic,thin_image,bifur_map,image_radius=int(384*29/30),max_radius = 200,min_radius = 0,verbose = False):
     """
     :param n: size ot return list
     :param stepSize:  r distance between two circle
@@ -44,28 +44,29 @@ def disk_mask(oriPic,bifur_map,image_radius=int(825*6/17),verbose = True):
     img_centerX = int(oriPic.shape[1]/2)
     if verbose:
         dis_img = oriPic.copy()
-        dis_img = cv2.cvtColor(dis_img,cv2.COLOR_GRAY2BGR)
+        dis_img = cv2.cvtColor((dis_img*0.5+thin_image*0.5).astype(np.uint8),cv2.COLOR_GRAY2BGR)
         cv2.namedWindow('Extracting', cv2.WINDOW_NORMAL)
         cv2.circle(dis_img,center = (centerX, centerY),radius = 2,color = (0,255,255))
         cv2.circle(dis_img, center=(img_centerX, img_centerY), radius=image_radius, color=(0, 0, 255))
 
 
-    max_radius = 150
-    center_distance = np.sqrt((centerX-img_centerX)**2+(centerY-img_centerY)**2)
-    over_radius = max_radius + center_distance
-    if over_radius>image_radius:
-        print('Failed to extract: Disk is too far away from center.')
-        return np.zeros_like(bifur_map)
-    if verbose:
-        print(over_radius,image_radius)
+
+    # center_distance = np.sqrt((centerX-img_centerX)**2+(centerY-img_centerY)**2)
+    # over_radius = max_radius + center_distance
+    # if over_radius>image_radius:
+    #     print('Failed to extract: Disk is too far away from center.')
+    #     return np.zeros_like(bifur_map)
+    # if verbose:
+    #     print(over_radius,image_radius)
 
     for j in range(bifur_map.shape[0]):
         for k in range(bifur_map.shape[1]):
             if bifur_map[j,k]>0:
                 dis = (j - centerY) * (j - centerY) + (k - centerX) * (k - centerX)
                 dis = np.sqrt(dis)
-                if dis > max_radius:
+                if dis > max_radius or dis < min_radius:
                     bifur_map[j, k]=0
+                else:
                     if verbose:
                         cv2.circle(dis_img, center=(k, j), radius=2, color=(0, 255, 255))
     if verbose:
@@ -91,7 +92,7 @@ def extract_bifur_feature(image_name):
         pro_image = image_preprocess_display(image)
         thin_image = image_thinning(pro_image.copy())
         bifur_map = extract_bifurcation(thin_image)
-        bifur_map = disk_mask(pro_image,bifur_map)
+        bifur_map = disk_mask(pro_image,thin_image,bifur_map)
     return bifur_map
 
 def extract_bifur_features(image_names):
@@ -100,4 +101,5 @@ def extract_bifur_features(image_names):
         descriptor_for_all.append(extract_bifur_feature(name))
     return np.array(descriptor_for_all)
 
-extract_bifur_feature('Sidra_custom/01/1.jpg')
+# res = extract_bifur_feature('Sidra_custom/02/2.jpg')
+# print(np.sum(res))

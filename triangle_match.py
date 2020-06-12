@@ -6,6 +6,7 @@ import cv2
 
 DEBUG = True
 
+
 def build_baseline_vectors_model(model_bifur_map):
     '''
 
@@ -51,8 +52,8 @@ def get_template_triangle(baseline_vector, c):
     return z
 
 
-def get_similar_triangles(test_bifur_map, record,baseline, z, epsilon,
-                          triangle_ignore_len, triangle_ignore_angle_cos, verbose= DEBUG):
+def get_similar_triangles(test_bifur_map, record, baseline, z, epsilon,
+                          triangle_ignore_len, triangle_ignore_angle_cos, verbose=DEBUG):
     '''
 
     :param test_bifur_map: the bifurcation point map of test, include n points.
@@ -84,14 +85,16 @@ def get_similar_triangles(test_bifur_map, record,baseline, z, epsilon,
             # ratio = dist_AB / dist_base
             # if ratio>1.2 or ratio <0.8:
             #     continue
+            # if not MATCH_FLAG.empty():
+            #     return np.array(triangles)
 
             C = rotation(A, B, z)
 
             if verbose:
                 new_right_img = right_img.copy()
                 for c in C:
-                   cv2.polylines(new_right_img, [np.array([A, B, c]).astype(np.int32)], True,
-                                 (0, 255, 255), 1)
+                    cv2.polylines(new_right_img, [np.array([A, B, c]).astype(np.int32)], True,
+                                  (0, 255, 255), 1)
                 point_flag = False
 
             for c in C:
@@ -243,10 +246,8 @@ cur_total = 0
 size_a = size_b = int(10)
 support_matrix = np.zeros(shape=(size_a, size_b)).astype(np.uint32)
 
-
-# import cv2
-# cv2.namedWindow('CLUSTER', cv2.WINDOW_AUTOSIZE)
-def dynamic_clustering(is_init, p=[0, 0], multip=100, radius=30, min_param_support=0.6, windowname='xxx',verbose = DEBUG ):
+def dynamic_clustering(is_init, p=[0, 0], multip=100, radius=30, min_param_support=0.6, windowname='xxx',
+                       verbose=DEBUG):
     global size_a, size_b, support_matrix, cur_total
     if is_init:
         cur_total = 0
@@ -342,11 +343,87 @@ def is_bad_triangle(A, B, C, triangle_ignore_len, triangle_ignore_angle_cos):
     return False
 
 
-def verify_baseline(baseline_vector, model_bifur_points, test_bifur_map, test_bifur_points,
-                    min_param_support, triangle_ignore_len, triangle_ignore_angle_cos):
-    cv2.namedWindow('CLUSTER' + str(baseline_vector), cv2.WINDOW_AUTOSIZE)
+class Cluster:
+    cur_total = 0
+    size_a = int(10)
+    size_b = int(10)
+    support_matrix = None
+    accumulate_matrix = None
+    multip = 0
+    radius = 0
+    min_param_support = 0.6
+    window = ''
+    def __init__(self, multi, radius=15, min_param_support=0.6, windowname='xxx'):
+        self.cur_total = 0
+        self.multip = multi
+        self.size_a = self.size_b = int(3 * multi)
+        self.support_matrix = np.zeros(shape=(self.size_a, self.size_b)).astype(np.uint32)
+        self.radius = radius
+        self.min_param_suppoort = min_param_support
+        self.window = windowname
 
-    dynamic_clustering(True)
+    def dynamic_clustering(self, p):
+        new_p = [int(p[0] * self.multip + 1.5 * self.multip), int(p[1] * self.multip + 1.5 * self.multip)]
+        if new_p[0] >= self.size_a or new_p[1] >= self.size_b or new_p[0] < 0 or new_p[1] < 0:
+            return False
+
+        self.cur_total += 1
+        self.support_matrix[new_p[0], new_p[1]] += 1
+
+        # cv2.imshow(self.window, (255 * self.support_matrix.copy() / self.support_matrix.max()).astype(np.uint8))
+        # cv2.waitKey(1)
+
+        while True:
+            # bfs here:
+            nearest_p = []
+            search_matrix = np.zeros_like(self.support_matrix)
+            cells = [[1, 0], [-1, 0], [0, 1], [0, -1]]
+            q = []
+            q.append([new_p, 0])
+            search_matrix[new_p[0], new_p[1]] = 1
+            while len(q) != 0:
+                cur_p, cur_dist = q.pop(0)
+                if cur_dist > 0 and self.support_matrix[cur_p[0], cur_p[1]] > 0:
+                    nearest_p = cur_p
+                    break
+
+                if cur_dist + 1 > self.radius:
+                    continue
+                for c in cells:
+                    next_p = [cur_p[0] + c[0], cur_p[1] + c[1]]
+                    if 0 <= next_p[0] < 3 * self.multip and 0 <= next_p[1] < 3 * self.multip and \
+                            search_matrix[next_p[0], next_p[1]] == 0:
+                        # haven't searched p
+                        q.append([next_p, cur_dist + 1])
+                        search_matrix[next_p[0], next_p[1]] = 1
+
+            if len(nearest_p) != 0:
+                # we found a nearest point
+                d_i = self.support_matrix[new_p[0], new_p[1]]
+                self.support_matrix[new_p[0], new_p[1]] = 0
+                d_j = self.support_matrix[nearest_p[0], nearest_p[1]]
+                self.support_matrix[nearest_p[0], nearest_p[1]] = 0
+
+                d_k = d_i + d_j
+                if d_k / self.cur_total >= self.min_param_support and d_k > 40:
+                    # print('found max support')
+                    return True
+                else:
+                    new_a = int((new_p[0] * d_i + nearest_p[0] * d_j) / d_k)
+                    new_b = int((new_p[1] * d_i + nearest_p[1] * d_j) / d_k)
+                    self.support_matrix[new_a, new_b] = d_k
+                    new_p = [new_a, new_b]
+            else:
+                return False
+        return False
+
+
+
+def verify_baseline(baseline_vector, model_bifur_points, test_bifur_map, test_bifur_points,
+                    min_param_support, triangle_ignore_len, triangle_ignore_angle_cos,MATCH_FLAG):
+    #cv2.namedWindow('CLUSTER' + str(baseline_vector), cv2.WINDOW_AUTOSIZE)
+    print('Start ',baseline_vector)
+    newcluster = Cluster(100, 30, min_param_support,'CLUSTER' + str(baseline_vector))
 
     np.random.shuffle(model_bifur_points)
     c_index = 0
@@ -364,16 +441,18 @@ def verify_baseline(baseline_vector, model_bifur_points, test_bifur_map, test_bi
             continue
 
         template_z = get_template_triangle(baseline_vector, C)
-        similar_triangles = get_similar_triangles(test_bifur_map, test_bifur_points, template_z, epsilon=20,
-                                                  triangle_ignore_len=triangle_ignore_len - 2,
+        similar_triangles = get_similar_triangles(test_bifur_map, test_bifur_points, baseline_vector, template_z,
+                                                  epsilon=5,
+                                                  triangle_ignore_len=triangle_ignore_len * 0.8,
                                                   triangle_ignore_angle_cos=triangle_ignore_angle_cos - 0.05)
         # print('similar_triangles Extracted ', C)
         for s in similar_triangles:
             # if s[0] represents vector A'B'
             a_b = cal_transform_param(baseline_vector, s[0])
-            if dynamic_clustering(False, a_b, min_param_support=min_param_support,
-                                  windowname='CLUSTER' + str(baseline_vector)):
+            if not MATCH_FLAG.empty():return False
+            if newcluster.dynamic_clustering(a_b):
                 print(baseline_vector, 'finish', True)
+                MATCH_FLAG.put(1)
                 return True
 
     print(baseline_vector, 'finish', False)
@@ -381,7 +460,7 @@ def verify_baseline(baseline_vector, model_bifur_points, test_bifur_map, test_bi
 
 
 def triange_match(model_bifur_map, test_bifur_map, max_baseline_failure, min_param_support,
-                  triangle_ignore_len, triangle_ignore_angle_cos, verbose=DEBUG ):
+                  triangle_ignore_len, triangle_ignore_angle_cos, verbose=DEBUG):
     model_baseline_vectors = build_baseline_vectors_model(model_bifur_map)
     model_bifur_points = map_to_points(model_bifur_map)
 
@@ -407,14 +486,15 @@ def triange_match(model_bifur_map, test_bifur_map, max_baseline_failure, min_par
             if test_bifur_map[y, x] == 1:
                 test_bifur_points.append([y, x])
     test_bifur_points = np.array(test_bifur_points)
-
     '''
-    results=[]
-    pool = multiprocessing.Pool(processes=4)
-    for i in range(int(max_baseline_failure*model_baseline_vectors.shape[0])):
+    results = []
+    MATCH_FLAG = multiprocessing.Queue()
+    pool = multiprocessing.Pool(processes=8)
+    for i in range(8):   #int(max_baseline_failure * model_baseline_vectors.shape[0])
         results.append(pool.apply_async(verify_baseline,
-                                    args=(model_baseline_vectors[i],model_bifur_points,test_bifur_map,test_bifur_points,
-                    min_param_support,triangle_ignore_len, triangle_ignore_angle_cos)))
+                                        args=(model_baseline_vectors[i], model_bifur_points, test_bifur_map,
+                                              test_bifur_points,
+                                              min_param_support, triangle_ignore_len, triangle_ignore_angle_cos,MATCH_FLAG)))
 
     pool.close()
     pool.join()
@@ -422,7 +502,6 @@ def triange_match(model_bifur_map, test_bifur_map, max_baseline_failure, min_par
     res = np.array([i.get() for i in results]).any()
     return res
     '''
-
     for baseline_vector in model_baseline_vectors:
         if baseline_match_failure >= max_baseline_failure * model_baseline_vectors.shape[0]:
             return False
@@ -455,8 +534,9 @@ def triange_match(model_bifur_map, test_bifur_map, max_baseline_failure, min_par
                 cv2.waitKey(1)
 
             template_z = get_template_triangle(baseline_vector, C)
-            similar_triangles = get_similar_triangles(test_bifur_map, test_bifur_points,baseline_vector, template_z, epsilon=5,
-                                                      triangle_ignore_len=triangle_ignore_len *0.8,
+            similar_triangles = get_similar_triangles(test_bifur_map, test_bifur_points, baseline_vector, template_z,
+                                                      epsilon=5,
+                                                      triangle_ignore_len=triangle_ignore_len * 0.8,
                                                       triangle_ignore_angle_cos=triangle_ignore_angle_cos - 0.05)
             if verbose:
                 print(similar_triangles.shape[0], 'similar_triangles Extracted ', C)
@@ -481,31 +561,24 @@ def triange_match(model_bifur_map, test_bifur_map, max_baseline_failure, min_par
 
     return False
 
+
+
+
 if __name__ == '__main__':
     import time
     import cv2
     from image_preprocessing import image_preprocess_display, image_thinning, read_image_and_preprocess, \
         get_minutiae_values
 
-
-    def extract_bifurcation(img):
-        '''
-        extract bifurcation and ending points.
-        :param img: bi-valued image
-        :return: a list of bifurcation points
-        '''
-        minutiae_map = get_minutiae_values(img)
-        bifurcation_points = np.where(np.logical_and(minutiae_map == 3, img > 0), 1, 0)
-        return bifurcation_points
-
+    from feature_extract_triangle import extract_bifur_feature
 
     for i in range(1, 5):
-        model_image = read_image_and_preprocess('Sidra_custom/0' + str(i) + '/1.jpg')
-        #for j in range(1, 2):
-        test_image = read_image_and_preprocess('Sidra_custom/0' + str(i) + '/2.jpg')
+        model_image = extract_bifur_feature('Sidra_custom/0' + str(i) + '/1.jpg')
+        # for j in range(1, 2):
+        test_image = extract_bifur_feature('Sidra_custom/0' + str(i) + '/2.jpg')
         start = time.time()
-        res = triange_match(extract_bifurcation(model_image), extract_bifurcation(test_image), 0.1, 0.6,
-                            triangle_ignore_len=200, triangle_ignore_angle_cos=0.1)
+        res = triange_match(model_image, test_image, 0.1, 0.5,
+                            triangle_ignore_len=50, triangle_ignore_angle_cos=0.1)
         end = time.time()
         t = str(i) + ' ' + str(i) + ' result:' + str(res) + ',time cost:' + str(end - start) + 's'
         print(t)
