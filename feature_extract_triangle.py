@@ -1,6 +1,6 @@
 import cv2
 import numpy as np
-from image_preprocessing import read_image_and_preprocess, get_minutiae_values,image_preprocess
+from image_preprocessing import read_image_and_preprocess, get_minutiae_values,image_preprocess,image_preprocess_display,image_thinning
 
 cells = [(-1, -1),
          (-1, 0),
@@ -31,7 +31,7 @@ def get_minutiae_values(img):
     return crossings
 
 from dishPosition import dishPosition
-def disk_mask(oriPic,bifur_map,image_radius=int(825*6/17),verbose = False):
+def disk_mask(oriPic,bifur_map,image_radius=int(825*6/17),verbose = True):
     """
     :param n: size ot return list
     :param stepSize:  r distance between two circle
@@ -42,6 +42,12 @@ def disk_mask(oriPic,bifur_map,image_radius=int(825*6/17),verbose = False):
     centerX, centerY = dishPosition(oriPic)
     img_centerY = int(oriPic.shape[0]/2)
     img_centerX = int(oriPic.shape[1]/2)
+    if verbose:
+        dis_img = oriPic.copy()
+        dis_img = cv2.cvtColor(dis_img,cv2.COLOR_GRAY2BGR)
+        cv2.namedWindow('Extracting', cv2.WINDOW_NORMAL)
+        cv2.circle(dis_img,center = (centerX, centerY),radius = 2,color = (0,255,255))
+        cv2.circle(dis_img, center=(img_centerX, img_centerY), radius=image_radius, color=(0, 0, 255))
 
 
     max_radius = 150
@@ -60,6 +66,13 @@ def disk_mask(oriPic,bifur_map,image_radius=int(825*6/17),verbose = False):
                 dis = np.sqrt(dis)
                 if dis > max_radius:
                     bifur_map[j, k]=0
+                    if verbose:
+                        cv2.circle(dis_img, center=(k, j), radius=2, color=(0, 255, 255))
+    if verbose:
+        cv2.imshow('Extracting',dis_img)
+        cv2.waitKey(1)
+        if cv2.waitKey(0) & 0xff == ord('c'):
+            cv2.waitKey(1)
     return bifur_map
 
 def extract_bifurcation(img):
@@ -75,10 +88,10 @@ def extract_bifurcation(img):
 def extract_bifur_feature(image_name):
     image = cv2.imread(image_name)
     if image is not None:
-        pro_image = image_preprocess(image)
-
-        bifur_map = extract_bifurcation(pro_image)
-        bifur_map = disk_mask(image,bifur_map)
+        pro_image = image_preprocess_display(image)
+        thin_image = image_thinning(pro_image.copy())
+        bifur_map = extract_bifurcation(thin_image)
+        bifur_map = disk_mask(pro_image,bifur_map)
     return bifur_map
 
 def extract_bifur_features(image_names):
@@ -86,3 +99,5 @@ def extract_bifur_features(image_names):
     for name in image_names:
         descriptor_for_all.append(extract_bifur_feature(name))
     return np.array(descriptor_for_all)
+
+extract_bifur_feature('Sidra_custom/01/1.jpg')
